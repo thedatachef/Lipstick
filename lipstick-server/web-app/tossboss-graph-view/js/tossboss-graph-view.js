@@ -179,10 +179,20 @@
 
         // Set GraphModel graph type and get SVG data for type.
         GraphModel.options.graphType = type.toLowerCase();
-        var svgData = GraphModel.getSvgData();
+        var svgData = GraphModel.getSvgData(); // Render graph instead using Dagre
+        
+        //
+        // Draw with dagre
+        //
+        $('svg g').empty();
+        var graphData = GraphModel.getGraph();        
+        GraphRenderer.renderGraph(graphData);
+        
+        // 
         // Clear current graph and draw new graph.
-        $(GraphView.options.graphSel).empty();
-        $(GraphView.options.graphSel).html(svgData);
+        // $(GraphView.options.graphSel).empty();
+        // $(GraphView.options.graphSel).html(svgData);
+        
         // The SVG has a white background polygon, remove it.
         $('g.graph > polygon').remove();
         $('.page').scrollTop(0);

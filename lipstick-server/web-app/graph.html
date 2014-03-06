@@ -118,7 +118,11 @@
         </div>
         <div class="container padded page graph-container" id="graph">
             <div id="pig-graph">
-                <img class="center" src="./images/loading.gif"/>
+              <svg>
+                <g class="graph">
+                </g>
+              </svg>
+              <!-- <img class="center" src="./images/loading.gif"/>               -->
             </div>
         </div>
     </body>
@@ -130,10 +134,15 @@
     <script src="./bootstrap/js/bootstrap.js"></script>
     <script src="./codemirror/js/codemirror.js"></script>
     <script src="./codemirror/js/hive.js"></script>
+    <script src="./js/knockout-3.0.0.js"></script>
+    <script src="./js/graphlib.min.js"></script>
+    <script src="./js/dagre-d3.js"></script>
     <script src="./tossboss-main/js/tossboss-templates.js"></script>
     <script src="./tossboss-main/js/tossboss-main.js"></script>
     <script src="./tossboss-modal/js/tossboss-modal.js"></script>
+    <script src="./tossboss-graph-model/js/tossboss-graph-builder.js"></script>
     <script src="./tossboss-graph-model/js/tossboss-graph-model.js"></script>
+    <script src="./tossboss-graph-view/js/tossboss-graph-renderer.js"></script>
     <script src="./tossboss-graph-view/js/tossboss-graph-view.js"></script>
     <script src="./tossboss-detail-view/js/tossboss-detail-view.js"></script>
     <script src="./tossboss-script/js/tossboss-script.js"></script>

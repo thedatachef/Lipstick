@@ -54,3 +54,18 @@ img.center {
 .sample-output-icon {
     margin-left: 5px;
 }
+
+.node rect {
+  stroke-width: 1px;
+  stroke: #333;
+}
+
+.edgeLabel rect {
+  fill: #fff;
+}
+
+.edgePath path {
+  stroke: #333;
+  stroke-width: 1.5px;
+  fill: none;
+}

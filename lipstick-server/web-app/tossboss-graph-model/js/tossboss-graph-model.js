@@ -36,6 +36,10 @@
         svgUnoptimized: undefined,
         pigOptimizedData: undefined,
         svgOptimized: undefined,
+        graphUnoptimized: undefined,
+        graphOptimized: undefined,
+        optimizedViewModel: undefined,
+        unoptimizedViewModel: undefined,
         runStatsData: undefined,
         sampleOutputsData: {}
     },
@@ -91,6 +95,10 @@
             GraphModel.options.runStatsData = json.status;
             GraphModel.options.pigOptimizedData = json.optimized.plan;
             GraphModel.options.svgOptimized = json.optimized.svg;
+            GraphBuilder.buildGraph(json.optimized.plan, function(optimizedGraph, viewModel) {
+              GraphModel.options.graphOptimized = optimizedGraph;
+              GraphModel.options.optimizedViewModel = viewModel;                                        
+            });
             $(GraphModel.options.jobInfoSel).html(json.jobName + ' (' + json.userName + ')');
             $(document).trigger('loadGraphModel.tossboss-graph-model');
             GraphModel.getRunStats()
@@ -103,6 +111,10 @@
         }).done(function(json) {
             GraphModel.options.pigUnoptimizedData = json.unoptimized.plan;
             GraphModel.options.svgUnoptimized = json.unoptimized.svg;
+            GraphBuilder.buildGraph(json.unoptimized.plan, function(unoptimizedGraph, viewModel) {
+              GraphModel.options.graphUnoptimized = unoptimizedGraph;
+              GraphModel.options.unoptimizedViewModel = viewModel;                                                                                
+            });
         });
     },
     /**
@@ -133,6 +145,20 @@
             return GraphModel.options.pigOptimizedData;
         }
         return GraphModel.options.pigUnoptimizedData;
+    },
+    /**
+     * Return the GraphLib graph representation and associated viewmodel
+     */
+    getGraph: function() {
+      var result = {}
+      if (GraphModel.options.graphType.toLowerCase() === 'optimized') {
+          result.graph = GraphModel.options.graphOptimized;
+          result.viewModel = GraphModel.options.optimizedViewModel;
+          return result;
+      }
+      result.graph = GraphModel.options.graphUnoptimized;
+      result.viewModel = GraphModel.options.unoptimizedViewModel;
+      return result;
     },
     /**
      * Return the SVG markup for the active graph type (optimized or unoptimized).
