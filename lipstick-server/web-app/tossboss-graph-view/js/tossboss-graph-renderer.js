@@ -53,6 +53,7 @@
         });
         
         var svg = d3.select('#pig-graph').append('svg').append('g');
+        renderer.edgeInterpolate('linear')
         renderer.run(graph, svg);
 
         var bbox = svg.node().getBBox();        
