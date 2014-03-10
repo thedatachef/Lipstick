@@ -180,13 +180,16 @@
         // Set GraphModel graph type and get SVG data for type.
         GraphModel.options.graphType = type.toLowerCase();
         var svgData = GraphModel.getSvgData(); // Render graph instead using Dagre
-        
+
         //
         // Draw with dagre
         //
-        $('svg g').empty();
         var graphData = GraphModel.getGraph();        
-        GraphRenderer.renderGraph(graphData);
+        GraphRenderer.renderGraph(graphData.graph, function(svgData) {
+          $(GraphView.options.graphSel).empty();                                      
+          $(GraphView.options.graphSel).html(svgData);
+          ko.applyBindings(graphData.viewModel);
+        });
         
         // 
         // Clear current graph and draw new graph.

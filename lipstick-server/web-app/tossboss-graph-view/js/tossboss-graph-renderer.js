@@ -8,10 +8,9 @@
         bgRedTask: "#FF9900",
         bgUnkTask: "#BF0A0D",
         bgWhite: "#FFFFFF"
-    },
+    },        
 
     getJobColor: function(node) {
-        console.log(node.mapReduce.stepType());
         if (node.mapReduce) {
             var stepType = node.mapReduce.stepType();
             if (stepType === "MAPPER") {
@@ -54,11 +53,124 @@
         }
         return false;
     },
+    
+    additionalInfo: function(node) {
+        if (node.location.macro().length > 0) {
+            return "MACRO: " + node.location().macro()[0];
+        }
+        if (node.operator === "LOLimit") {
+            return node.data.rowLimit;
+        }
+        if (node.operator === "LOJoin") {
+            return node.data.join.type + ", " + node.data.join.strategy;
+        }
+        return "";
+    },
+    
+    genOperationRow: function(node) {
+        var info = GraphRenderer.additionalInfo(node);
+        if (info) {
+            info = " (" + info + ")";
+        }
+        var op = null;
+        if (node.operator === "LOCogroup" && node.data.group.expression.length < 2) {
+            op = "GROUP";
+        } else {
+            op = node.operator.substring(2).toUpperCase();
+        }
+        var result = {
+            text: op + info,
+            color: GraphRenderer.getJobColor(node), 
+            textcolor: '#000000'
+        };
+        return result;
+    },
+    
+    genMiscRows: function(node) {
+        var expression = null;
+        var result = [];
+        if (node.operator === "LOFilter") {
+            expression = node.data.expression;
+        }
+        if (node.operator === "LOSplitOutput") {
+            expression = node.data.expression;
+        }
+        if (expression) {
+            result.push({text: expression, color: GraphRenderer.options.bgExpression, textcolor: '#000000'});
+        }
+        var storageLocation = null;
+        var storageFunction = null;
+        if (node.operator === "LOStore") {
+            storageLocation = node.data.storageLocation;
+            storageFunction = node.data.storageFunction;
+        } else if (node.operator === "LOLoad") {
+            storageLocation = node.data.storageLocation;
+            storageFunction = node.data.storageFunction;
+        }
+        if (storageLocation) {
+            result.push({text: storageLocation, color: GraphRenderer.options.bgExpression, textcolor: '#000000'});
+            result.push({text: storageFunction, color: GraphRenderer.options.bgExpression, textcolor: '#000000'});
+        }
+        return result;
+    },
+
+    genJoinExpressions: function(node) {
+        if (node.operator === "LOJoin" || node.operator === "LOCogroup") {
+            var join = null;
+            if (node.operator === "LOJoin") {
+                join = node.data.join;
+            } else {
+                join = node.data.group;
+            }
+
+            var expressions = [];
+            for (var key in join.expression) {
+                expressions.push(join.expression[key].fields);
+            }
+            
+            var result = [];
+            // if (expressions.length > 1) {                
+            //             for (Entry<String, JoinExpression> entry : expressions) {
+            //         html.td().bgcolor(BG_EXPRESSION).text(entry.getKey() == null ? "null" : entry.getKey()).end();
+            //     }
+            //     html.end();
+            // }
+            // for (int i = 0; i < exp.get(0).size(); i++) {
+            //     html.tr();
+            //     for (int j = 0; j < exp.size(); j++) {
+            //         html.td().bgcolor(BG_WHITE).text(exp.get(j).get(i)).end();
+            //     }
+            //     html.end();
+            // }
+            // html.end();
+        }
+    },
 
     nodeViewData: function(node, h) {
         var data = [];
-        data.push({x:0, y:-h, height: h, text: node.operator, color: GraphRenderer.getJobColor(node)});
-        data.push({x:0, y:0, height: h, text: node.alias, color: GraphRenderer.options.bgAlias});
+        
+        // Operator name
+        var operationRow = GraphRenderer.genOperationRow(node);
+        
+        data.push(operationRow);
+        
+        var miscRows = GraphRenderer.genMiscRows(node);
+        for (var i = 0; i < miscRows.length; i++) {
+            data.push(miscRows[i]);            
+        }
+        
+        if (node.alias && node.operator != "LOSplit") {
+            data.push({text: node.alias, color: GraphRenderer.options.bgAlias, textcolor: '#FFFFFF'});
+        }
+
+        GraphRenderer.genJoinExpressions(node);
+        
+        for (var i = 0; i < data.length; i++) {
+            var row = data[i];
+            row.x = 0;
+            row.y = -h + i*h;
+            row.height = h;
+        }
         return data;
     },
 
@@ -81,6 +193,7 @@
           .attr('text-anchor', 'end')
           .attr('font-family', 'Times,serif')
           .attr('font-size', '12.00')
+          .attr('fill', function(data) { return data.textcolor; })
           .attr('y', function(data) { return data.y + data.height/2; })
           .each(function(data) { 
             var w = d3.select(this).node().getBBox().width; 
@@ -112,7 +225,7 @@
         return 'children' in graph && graph.children(u).length;
     },
 
-    renderGraph: function (graphData) {        
+    renderGraph: function (graph, callback) {        
         var renderer = new dagreD3.Renderer();
         var oldDrawNodes = renderer.drawNodes();        
         renderer.drawNodes(function(graph, root) {
@@ -137,7 +250,13 @@
           return svgNodes;
         });
         
-        renderer.run(graphData.graph, d3.select("svg g"));
-        ko.applyBindings(graphData.viewModel); // no bindings yet...
+        var svg = d3.select('#pig-graph').append('svg').append('g');
+        renderer.run(graph, svg);
+        var bbox = svg.node().getBBox();        
+        var viewHeight = bbox.height+"pt";
+        var viewWidth = bbox.width+"pt";
+        var viewBox = "0.00 0.00 "+bbox.width+" "+bbox.height;
+        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+svg.html()+"</svg>";
+        callback(result);
     }
 };

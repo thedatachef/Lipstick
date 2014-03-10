@@ -38,6 +38,9 @@
         self.mapReduce = ko.observable(new GraphBuilder.MapReduce(data.mapReduce));
         self.schemaString = ko.observable(data.schemaString);
         
+        // FIXME: remove this; should use all observables
+        self.data = data;    
+    
         // Need to have a function to -read- all values
         self.node = ko.computed(function() {
           var result = {
@@ -49,7 +52,8 @@
               alias: self.alias(),
               location: self.location(),
               mapReduce: self.mapReduce(),
-              schemaString: self.schemaString()            
+              schemaString: self.schemaString(),
+              data: data
           };                    
           return result;
          });    
