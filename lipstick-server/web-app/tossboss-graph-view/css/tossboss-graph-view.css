@@ -58,6 +58,7 @@ img.center {
 .node rect {
   stroke-width: 1px;
   stroke: #333;
+  fill: #fff;
 }
 
 .edgeLabel rect {
@@ -68,4 +69,57 @@ img.center {
   stroke: #333;
   stroke-width: 1.5px;
   fill: none;
+}
+
+.node-html {
+  font-size: 12px;
+  text-align: center;
+  border: 1px solid black;  
+}
+
+.node-row {
+  border: 1px solid black;
+}
+
+.operation-row.map {
+  background-color: #3299BB;
+}
+
+.operation-row.reduce {
+  background-color: #FF9900;
+}
+
+.operation-row.none {
+  background-color: #BF0A0D;
+}
+
+.misc-row {
+  background-color: #BCBCBC;
+}
+
+.alias-row {
+  color: #FFFFFF;
+  background-color: #424242;
+}
+
+.join-expression tr, td{
+   border: 1px solid black;
+   border-collapse: collapse;
+}
+
+.join-expression-header {
+  background-color: #BCBCBC;
+}
+
+.join-expression-body {
+  background-color: #FFFFFF;
+}
+
+.node-row.schema tr, td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+.field-schema-row {
+  background-color: #FFFFFF;
 }

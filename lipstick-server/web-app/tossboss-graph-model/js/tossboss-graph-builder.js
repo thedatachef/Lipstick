@@ -37,10 +37,218 @@
         self.location = ko.observable(new GraphBuilder.Location(data.location));
         self.mapReduce = ko.observable(new GraphBuilder.MapReduce(data.mapReduce));
         self.schemaString = ko.observable(data.schemaString);
+        self.data = data;        
         
-        // FIXME: remove this; should use all observables
-        self.data = data;    
-    
+        self.additionalInfo = ko.computed(function () {
+          if (self.location().macro().length > 0) {
+            return "MACRO: " + self.location().macro()[0];
+          }
+
+          if (self.operator() === "LOLimit") {
+            return self.data.rowLimit;
+          }
+
+          if (self.operator() === "LOJoin") {
+            return data.join.type + ", " + self.data.join.strategy;
+          }
+          return "";
+        });
+
+        self.getColSpan = ko.computed(function () {
+          var colspan = null;
+                                          
+          if (self.operator() === "LOJoin" || self.operator() === "LOCogroup") {
+            var join;
+            if (self.operator() === "LOJoin") {
+                join = self.data.join;
+            } else {
+                join = self.data.group;
+            }
+            colspan = join.expression.length;
+          }
+          return colspan ? colspan : "2";
+        });
+
+        self.operationRow = ko.computed(function () {
+          var info = self.additionalInfo();
+          if (info) {
+            info = " (" + info + ")";
+          }
+          var op = null;
+          if (self.operator() === "LOCogroup" && self.data.group.expression.length < 2) {
+            op = "GROUP";
+          } else {
+            op = self.operator().substring(2).toUpperCase();
+          }
+          var result = "<tr class=\"node-row operation-row {{opType}}\"><td colspan=\"{{colspan}}\">"+op+info+"</td></tr>";
+          return result;
+        });
+
+        self.miscRows = ko.computed(function () {
+          var expression = null;
+          var result = [];
+          if (self.operator() === "LOFilter") {
+            expression = self.data.expression;
+          }
+          if (self.operator() === "LOSplitOutput") {
+            expression = self.data.expression;
+          }
+          if (expression) {
+            result.push("<tr class=\"node-row misc-row expression-row\"><td colspan=\"{{colspan}}\">"+expression+"</td></tr>");
+          }
+          var storageLocation = null;
+          var storageFunction = null;
+          if (self.operator() === "LOStore") {
+            storageLocation = self.data.storageLocation;
+            storageFunction = self.data.storageFunction;
+          } else if (self.operator() === "LOLoad") {
+            storageLocation = self.data.storageLocation;
+            storageFunction = self.data.storageFunction;
+          }
+          if (storageLocation) {
+            result.push("<tr class=\"node-row misc-row uri-row\"><td colspan=\"{{colspan}}\">"+storageLocation+"</td></tr>");
+            result.push("<tr class=\"node-row misc-row function-row\"><td colspan=\"{{colspan}}\">"+storageFunction+"</td></tr>");
+          }
+          return result;
+        });
+
+        self.joinExpressions = ko.computed(function () {
+          if (self.operator() === "LOJoin" || self.operator() === "LOCogroup") {
+            var join;
+            if (self.operator() === "LOJoin") {
+                join = self.data.join;
+            } else {
+                join = self.data.group;
+            }
+
+            var expressions = [];
+            for (var key in join.expression) {
+                expressions.push(join.expression[key].fields);
+            }
+            var result = [];
+            if (expressions.length > 1) {
+                var tr = "<tr class=\"node-row join-expression join-expression-header\">";
+                for (var key in join.expression) {
+                    tr += "<td>";
+                    tr += (key ? key : "null");
+                    tr += "</td>";
+                }
+                tr += "</tr>";
+                result.push(tr);
+            }
+            for (var i = 0; i < expressions[0].length; i++) {
+                var tr = "<tr class=\"node-row join-expression join-expression-body\">";
+                for (var j = 0; j < expressions.length; j++) {
+                    tr += "<td>";
+                    tr += expressions[j][i];
+                    tr += "</td>";
+                }
+                tr += "</tr>";
+                result.push(tr);
+            }
+            return result;
+          }
+          return [];                                               
+        });
+
+        self.schemaEqualsPredecessor = ko.computed(function () {
+          if (self.schemaString()) {
+            var operString = self.schemaString().substring(1, self.schemaString().length - 1);
+            for (var i = 0; i < self.predecessors().length; i++) {
+                var pred = self.predecessors()[i];
+                if (pred.schemaString) {
+                    var predString = pred.schemaString.substring(1, pred.schemaString.length - 1);
+                    if (predString != operString) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+            return true;
+          }
+          return false;
+        });
+        
+        self.displaySchema = ko.computed(function () {
+                                             
+          if (self.location().line() != null
+            && !self.schemaEqualsPredecessor()
+            && self.operator() != "LOSplit"
+            && self.operator() != "LOFilter"
+            && self.operator() != "LODistinct"
+            && self.operator() != "LOLimit"
+            && self.operator() != "LOJoin"
+            && self.operator() != "LOCogroup") {
+            return true;
+          }
+          return false;
+        });
+
+        self.schemaRows = ko.computed(function () {
+          var result = [];                                          
+          if (self.displaySchema()) {
+            if (self.schema()) {
+                for (var i = 0; i < self.schema().length; i++) {
+                    var fieldSchema = self.schema()[i];
+
+                    var tr = "<tr class=\"node-row field-schema-row\">";                    
+                    tr += "<td>"+(fieldSchema.alias() ? fieldSchema.alias() : "?")+"</td>";
+                    tr += "<td>"+fieldSchema.type()+"</td>";
+                    tr += "</tr>";
+                    result.push(tr);
+                }
+            }
+          }
+          return result;
+        });
+        
+        self.displayTemplate = ko.computed(function () {
+          var resultRows = [];
+          resultRows.push('<div class="node-html">');                                               
+          resultRows.push('<table><tbody>');                                               
+
+          // Operation row                                               
+          resultRows.push(self.operationRow());
+                                               
+          // Misc rows
+          for (var i = 0; i < self.miscRows().length; i++) {                                               
+              resultRows.push(self.miscRows()[i]);
+          }
+                                               
+          // Alias row
+          if (self.alias() && self.operator() != "LOSplit") {
+            resultRows.push("<tr class=\"node-row alias-row\"><td colspan=\"{{colspan}}\">"+self.alias()+"</td></tr>");
+          }
+          
+          // Join expression
+          for (var i = 0; i < self.joinExpressions().length; i++) {
+              resultRows.push(self.joinExpressions()[i]);
+          }                                     
+                                               
+          // Schema rows
+          for (var i = 0; i < self.schemaRows().length; i++) {
+              resultRows.push(self.schemaRows()[i]);
+          }
+                                               
+          resultRows.push('</tbody></table>');                                               
+          resultRows.push('</div>');                                               
+          return Handlebars.compile(resultRows.join(''));
+        });        
+
+        self.opType = ko.computed(function () {
+          if (self.mapReduce()) {
+              var stepType = self.mapReduce().stepType();
+              if (stepType === "MAPPER") {
+                return 'map';
+              }
+              if (stepType === "REDUCER") {
+                return 'reduce';
+              }
+          }
+          return 'none';
+        });
+
         // Need to have a function to -read- all values
         self.node = ko.computed(function() {
           var result = {
@@ -53,8 +261,14 @@
               location: self.location(),
               mapReduce: self.mapReduce(),
               schemaString: self.schemaString(),
-              data: data
-          };                    
+              data: data,
+
+
+              opType: self.opType(),
+              colspan: self.getColSpan()
+          };
+          var template = self.displayTemplate();                                    
+          result.label = template(result);                           
           return result;
          });    
      },
@@ -70,7 +284,8 @@
            var result = {
                id: self.id(),
                u: self.u(),
-               v: self.v()
+               v: self.v(),
+               value: self.value()
            };
            return result;
          });
@@ -80,7 +295,7 @@
          var self = this;         
          self.nodes = ko.observableArray([]);
          self.edges = ko.observableArray([]);         
-
+         
          self.addNode = function(node) {
              self.nodes.push(node);
          };
@@ -97,18 +312,23 @@
             console.log(toEdit.node());   
          };
      },
-    
+
+    // FIXME - yes, obviously this is bad code; works for now
     populateViewModel: function (data, vm, callback) {
         for (var key in data) {
             if (data.hasOwnProperty(key)) {
-                var node = data[key];
+                var node = data[key];               
                 vm.addNode(new GraphBuilder.Node(node));
                 if (node.predecessors && node.predecessors.length > 0) {
+                    var predecessors = [];
                     for (var i = 0; i < node.predecessors.length; i++) {
                         var pred = data[node.predecessors[i]];
+                        predecessors.push(pred);
                         vm.addNode(new GraphBuilder.Node(pred)); // Trying to add the node too many times; ok for now
                         vm.addEdge(new GraphBuilder.Edge({id: pred.uid+"-"+node.uid, u: pred.uid, v: node.uid}));
-                    }
+                    }                    
+                    node.predecessors = predecessors;
+                    vm.addNode(new GraphBuilder.Node(node));
                 }
             }
         }
@@ -120,6 +340,8 @@
           // Only add the node if it does not already exist
           if (!graph.hasNode(node.uid())) {
               graph.addNode(node.uid(), node.node());               
+          } else {
+              graph.node(node.uid(), node.node());
           }
         });             
     },
@@ -127,7 +349,7 @@
     updateEdges: function(edges, graph) {
         ko.utils.arrayForEach(edges, function(edge) {
           if (!graph.hasEdge(edge.id())) {
-              graph.addEdge(edge.id(), edge.u(), edge.v());
+              graph.addEdge(edge.id(), edge.u(), edge.v(), edge.value());
           }
         });
     },
@@ -159,7 +381,7 @@
             });
         });
         GraphBuilder.populateViewModel(data, viewModel, function () {
-          callback(graph, viewModel);
+          callback(graph);
         });
     }
 };
