@@ -66,7 +66,6 @@
         renderer.edgeInterpolate('linear');
         renderer.run(graph, svg);
         
-
         //
         // Post processing; add rectangles
         //
@@ -107,13 +106,12 @@
                 .attr('stroke-width', '1.5px')
                 .style('opacity', 0.6);
         }
-        
 
-        var bbox = d3.select('#pig-graph svg').node().getBBox();        
+        var bbox = d3.select('#pig-graph svg').node().getBBox();
         var viewHeight = bbox.height+"pt";
         var viewWidth = bbox.width+"pt";
-        var viewBox = (-viewMargin)+" "+(-viewMargin)+" "+bbox.width+" "+bbox.height+100;
-        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+svg.html()+"</svg>";
+        var viewBox = (-viewMargin)+" "+(-viewMargin)+" "+bbox.width+" "+(bbox.height+100);
+        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+$('#pig-graph svg').html()+"</svg>";
 
         callback(result);
     }
