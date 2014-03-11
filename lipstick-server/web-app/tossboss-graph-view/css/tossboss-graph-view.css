@@ -55,30 +55,31 @@ img.center {
     margin-left: 5px;
 }
 
-.node rect {
-  stroke-width: 1px;
-  stroke: #333;
-  fill: #fff;
-}
-
 .edgeLabel rect {
   fill: #fff;
 }
 
-.edgePath path {
-  stroke: #333;
-  stroke-width: 1.5px;
+.edge path {
+  stroke: black;
+  stroke-width: 3px;
   fill: none;
 }
 
 .node-html {
-  font-size: 12px;
+  font-size: 1.5em;
+  font-family: Times,serif;
   text-align: center;
   border: 1px solid black;  
 }
 
 .node-row {
   border: 1px solid black;
+  background-color: #FFFFFF;
+}
+
+.node-row td {
+  border: 1px solid black;
+  border-collapse: collapse;
 }
 
 .operation-row.map {
@@ -102,24 +103,6 @@ img.center {
   background-color: #424242;
 }
 
-.join-expression tr, td{
-   border: 1px solid black;
-   border-collapse: collapse;
-}
-
 .join-expression-header {
   background-color: #BCBCBC;
-}
-
-.join-expression-body {
-  background-color: #FFFFFF;
-}
-
-.node-row.schema tr, td {
-  border: 1px solid black;
-  border-collapse: collapse;
-}
-
-.field-schema-row {
-  background-color: #FFFFFF;
 }

@@ -188,7 +188,7 @@
         GraphRenderer.renderGraph(graphData.graph, function(svgData) {
           $(GraphView.options.graphSel).empty();                                      
           $(GraphView.options.graphSel).html(svgData);
-          ko.applyBindings(graphData.viewModel);
+          ko.applyBindings(graphData.viewModel, $('svg')[0]);
         });
         
         // 
@@ -773,28 +773,28 @@
      * @param {Object} edge The edge element object
      */
     addEdgeTextElement: function(edge) {
-        var edgeObj = $(edge);
-        var edge    = edgeObj.get(0);
-        // Get head and tail X,Y coordinates
-        var headCoordinates = $(edge).find('polygon').attr('points').split(' ')[1].split(',');
-        var tailCoordinates = $(edge).find('path').attr('d').replace('M','').split('C')[0].split(',');
-        var headX = parseFloat(headCoordinates[0]);
-        var headY = parseFloat(headCoordinates[1]);
-        var tailX = parseFloat(tailCoordinates[0]);
-        var tailY = parseFloat(tailCoordinates[1]);
-        // Default text area's X,Y coordinates to display on right side of edge
-        var x = tailX + 5;
-        var y = tailY + 23;
-        $(edge).attr('data-text-placement','right');
-        //d3.select(edge).append('rect').attr('x',x).attr('y',y-12).attr('width','100').attr('height','15').attr('fill','white');
-        d3.select(edge).append('text').attr('x',x).attr('y',y).attr('font-size','0.7em');
-        // If arrow favors right, move text X,Y coordinates to left side of edge
-        if (headX > tailX) {
-            x = tailX - 15;
-            y = tailY + 23;
-            $(edge).attr('data-text-placement','left');
-            d3.select(edge).select('text').attr('x',x).attr('y',y).attr('text-anchor','end');
-        }
+        // var edgeObj = $(edge);
+        // var edge    = edgeObj.get(0);
+        // // Get head and tail X,Y coordinates
+        // var headCoordinates = $(edge).find('polygon').attr('points').split(' ')[1].split(',');
+        // var tailCoordinates = $(edge).find('path').attr('d').replace('M','').split('C')[0].split(',');
+        // var headX = parseFloat(headCoordinates[0]);
+        // var headY = parseFloat(headCoordinates[1]);
+        // var tailX = parseFloat(tailCoordinates[0]);
+        // var tailY = parseFloat(tailCoordinates[1]);
+        // // Default text area's X,Y coordinates to display on right side of edge
+        // var x = tailX + 5;
+        // var y = tailY + 23;
+        // $(edge).attr('data-text-placement','right');
+        // //d3.select(edge).append('rect').attr('x',x).attr('y',y-12).attr('width','100').attr('height','15').attr('fill','white');
+        // d3.select(edge).append('text').attr('x',x).attr('y',y).attr('font-size','0.7em');
+        // // If arrow favors right, move text X,Y coordinates to left side of edge
+        // if (headX > tailX) {
+        //     x = tailX - 15;
+        //     y = tailY + 23;
+        //     $(edge).attr('data-text-placement','left');
+        //     d3.select(edge).select('text').attr('x',x).attr('y',y).attr('text-anchor','end');
+        // }
     },
     /**
      * Changes background color of cluster for running map and reduce jobs.

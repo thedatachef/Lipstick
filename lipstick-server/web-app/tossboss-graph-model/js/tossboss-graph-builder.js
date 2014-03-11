@@ -278,14 +278,11 @@
          self.id = ko.observable(data.id);       // "u-v"
          self.u = ko.observable(data.u);         // From node id
          self.v = ko.observable(data.v);         // To node id
-         self.value = ko.observable(data.value); // Edge value
-
+         self.recordCount = ko.observable('0'); // Edge value
+                  
          self.edge = ko.computed(function() {
            var result = {
-               id: self.id(),
-               u: self.u(),
-               v: self.v(),
-               value: self.value()
+               label: self.recordCount()
            };
            return result;
          });
@@ -325,7 +322,7 @@
                         var pred = data[node.predecessors[i]];
                         predecessors.push(pred);
                         vm.addNode(new GraphBuilder.Node(pred)); // Trying to add the node too many times; ok for now
-                        vm.addEdge(new GraphBuilder.Edge({id: pred.uid+"-"+node.uid, u: pred.uid, v: node.uid}));
+                        vm.addEdge(new GraphBuilder.Edge({id: pred.uid+"->"+node.uid, u: pred.uid, v: node.uid}));
                     }                    
                     node.predecessors = predecessors;
                     vm.addNode(new GraphBuilder.Node(node));
@@ -335,33 +332,60 @@
         callback();
     },
         
-    updateNodes: function(nodes, graph) {
+    updateNodes: function(nodes, graph, subGraphs) {
         ko.utils.arrayForEach(nodes, function(node) {
-          // Only add the node if it does not already exist
+          // Add to appropriate subgraph
+          if (node.mapReduce() && node.mapReduce().jobId()) {
+            var jid = node.mapReduce().jobId();
+            if (!subGraphs.hasOwnProperty(jid)) {
+              var subGraph = new dagreD3.Digraph();
+              subGraphs[jid] = subGraph;
+            }
+            
+            // Only add node to subgraph if it isn't already
+            var subGraph = subGraphs[jid];
+            if (!subGraph.hasNode(node.uid())) {
+              subGraph.addNode(node.uid(), node.node());
+            }
+          }
+                                  
           if (!graph.hasNode(node.uid())) {
               graph.addNode(node.uid(), node.node());               
           } else {
               graph.node(node.uid(), node.node());
           }
-        });             
+        });
+        
+        for (var key in subGraphs) {
+            var subGraph = subGraphs[key];
+            if (!graph.hasNode(key)) {
+                graph.addNode(key, {label: "subgraph"});
+            }
+            subGraph.eachNode(function(u, value) {
+              graph.parent(u, key);
+            });
+        }
+        
     },
 
-    updateEdges: function(edges, graph) {
+    updateEdges: function(edges, graph, subGraphs) {
         ko.utils.arrayForEach(edges, function(edge) {
           if (!graph.hasEdge(edge.id())) {
-              graph.addEdge(edge.id(), edge.u(), edge.v(), edge.value());
+              graph.addEdge(edge.id(), edge.u(), edge.v(), edge.edge());
           }
         });
     },
 
     buildGraph: function(data, callback) {
         var viewModel = new GraphBuilder.ViewModel();
-        var graph = new dagreD3.Digraph();
+        var graph = new graphlib.CDigraph();
+        var subGraphs = {};
+
         var nodeSubscriptions = [];
         var edgeSubscriptions = [];
           
         viewModel.nodes.subscribe(function (nodes) {
-            GraphBuilder.updateNodes(nodes, graph);
+            GraphBuilder.updateNodes(nodes, graph, subGraphs);
             ko.utils.arrayForEach(nodeSubscriptions, function(sub) { sub.dispose(); } );
             ko.utils.arrayForEach(nodes, function(item) {
               nodeSubscriptions.push(item.node.subscribe(function() {
@@ -371,7 +395,7 @@
         });
           
         viewModel.edges.subscribe(function (edges) {
-            GraphBuilder.updateEdges(edges, graph);
+            GraphBuilder.updateEdges(edges, graph, subGraphs);
            
             ko.utils.arrayForEach(edgeSubscriptions, function(sub) { sub.dispose(); } );
             ko.utils.arrayForEach(edges, function(item) {
