@@ -94,17 +94,24 @@
               if (bottom > subBox.maxY || subBox.maxY == null) { subBox.maxY = bottom; }
               if (top < subBox.minY || subBox.minY == null) { subBox.minY = top; }
             });
-
-            d3.select('g').insert('rect', ':first-child')
+            
+            var cluster = d3.select('g.nodes').insert('g', ':first-child')
                 .attr('id', subGraphs[i])
-                .attr('x', subBox.minX - viewMargin)
-                .attr('y', subBox.minY - viewMargin)
-                .attr('width', subBox.maxX - subBox.minX + viewMargin*2)
-                .attr('height', subBox.maxY - subBox.minY + viewMargin*2)
-                .attr('fill', '#e9e9e9')
-                .attr('stroke', 'black')
-                .attr('stroke-width', '1.5px')
-                .style('opacity', 0.6);
+                .classed('cluster', true);
+            cluster
+                .append('title')
+                    .text(subGraphs[i].split('-')[1]);
+
+            cluster
+                .append('rect')
+                    .attr('x', subBox.minX - viewMargin)
+                    .attr('y', subBox.minY - viewMargin)
+                    .attr('width', subBox.maxX - subBox.minX + viewMargin*2)
+                    .attr('height', subBox.maxY - subBox.minY + viewMargin*2)
+                    .attr('fill', '#e9e9e9')
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '1.5px')
+                    .style('opacity', 0.6);
         }
 
         var bbox = d3.select('#pig-graph svg').node().getBBox();
