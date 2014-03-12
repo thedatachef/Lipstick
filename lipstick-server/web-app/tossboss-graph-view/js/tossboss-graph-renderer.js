@@ -95,9 +95,10 @@
               if (top < subBox.minY || subBox.minY == null) { subBox.minY = top; }
             });
             
-            var cluster = d3.select('g.nodes').insert('g', ':first-child')
+            var cluster = d3.select('g').insert('g', ':first-child')
                 .attr('id', subGraphs[i])
                 .classed('cluster', true);
+
             cluster
                 .append('title')
                     .text(subGraphs[i].split('-')[1]);

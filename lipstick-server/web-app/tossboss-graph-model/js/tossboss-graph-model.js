@@ -97,11 +97,11 @@
             GraphModel.options.svgOptimized = json.optimized.svg;
             GraphBuilder.buildGraph(json.optimized.plan, function(optimizedGraph, viewModel) {
               GraphModel.options.graphOptimized = optimizedGraph;
-              GraphModel.options.optimizedViewModel = viewModel;                                        
+              GraphModel.options.optimizedViewModel = viewModel;
             });
             $(GraphModel.options.jobInfoSel).html(json.jobName + ' (' + json.userName + ')');
             $(document).trigger('loadGraphModel.tossboss-graph-model');
-            GraphModel.getRunStats()
+            GraphModel.getRunStats();
         }).fail(function() {
         });
         // Get unoptimized Pig data.
@@ -131,6 +131,7 @@
             if (GraphModel.options.runStatsData.statusText.toLowerCase() === "running") {
                 _.delay(GraphModel.getRunStats, 5000);
             }
+            GraphModel.options.optimizedViewModel.update(json.status);
         }).fail(function() {
             _.delay(GraphModel.getRunStats, 5000);
         });
