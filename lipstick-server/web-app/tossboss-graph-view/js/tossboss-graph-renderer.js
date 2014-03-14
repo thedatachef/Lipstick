@@ -62,7 +62,7 @@
           return edgePaths;                                   
         });
 
-        var svg = d3.select('#pig-graph').append('svg').append('g');
+        var svg = d3.select('#pig-graph').append('svg').append('g');        
         renderer.edgeInterpolate('linear');
         renderer.run(graph, svg);
         
@@ -70,7 +70,7 @@
         // Post processing; add rectangles
         //
         var viewMargin = 20;
-        var subGraphs = graph.children(null);        
+        var subGraphs = graph.children(null); 
         var nodes = graph.nodes().filter(function(u) { return !GraphRenderer.isComposite(graph, u); });
         for (var i = 0; i < subGraphs.length; i++) {
             var subBox = {maxX:null, maxY:null, minX:null, minY:null};
@@ -94,14 +94,18 @@
               if (bottom > subBox.maxY || subBox.maxY == null) { subBox.maxY = bottom; }
               if (top < subBox.minY || subBox.minY == null) { subBox.minY = top; }
             });
-            
-            var cluster = d3.select('g').insert('g', ':first-child')
+
+                
+            // Get view model data for cluster            
+            var clusterData = graph.node(subGraphs[i]).data;
+            var cluster = svg.insert('g', ':first-child')
                 .attr('id', subGraphs[i])
                 .classed('cluster', true);
 
             cluster
                 .append('title')
                     .text(subGraphs[i].split('-')[1]);
+                        
 
             cluster
                 .append('rect')
@@ -113,13 +117,15 @@
                     .attr('stroke', 'black')
                     .attr('stroke-width', '1.5px')
                     .style('opacity', 0.6);
+
+            ko.applyBindings(clusterData, cluster.node());
         }
 
-        var bbox = d3.select('#pig-graph svg').node().getBBox();
+        var bbox = svg.node().getBBox();
         var viewHeight = bbox.height+"pt";
         var viewWidth = bbox.width+"pt";
         var viewBox = (-viewMargin)+" "+(-viewMargin)+" "+bbox.width+" "+(bbox.height+100);
-        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+$('#pig-graph svg').html()+"</svg>";
+        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+svg.html()+"</svg>";
 
         callback(result);
     }

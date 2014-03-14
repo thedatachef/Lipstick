@@ -108,6 +108,7 @@
             if (storageLocation) {
                 result.push("<tr class=\"node-row misc-row uri-row\"><td colspan=\"{{colspan}}\">"+storageLocation+"</td></tr>");
                 result.push("<tr class=\"node-row misc-row function-row\"><td colspan=\"{{colspan}}\">"+storageFunction+"</td></tr>");
+                result.push("<tr data-bind=\"template: {name: \'node-template\', data: nodes['"+self.uid()+"']}\"></tr>");
             }
             return result;
         });
@@ -271,6 +272,13 @@
         self.id = ko.observable(clusterId);
         self.running = ko.observable(false);
         self.runType = ko.observable('');
+        self.css = ko.computed(function() {
+          if (self.running()) {
+              return 'cluster running '+self.runType();
+          } else {
+              return 'cluster';
+          }   
+        });
     },
     
     ViewModel: function () {
@@ -319,7 +327,7 @@
             for (var key in self.subGraphs) {
                 var subGraph = self.subGraphs[key];
                 if (!self.graph.hasNode(key)) {
-                    self.graph.addNode(key, {label: "subgraph"});
+                    self.graph.addNode(key, {label: "cluster", data: self.clusters[key]});
                 }
                 subGraph.eachNode(function(u, value) {
                     // Set cluster id
@@ -363,9 +371,17 @@
             console.log(runStats.jobStatusMap);                
             for (var key in runStats.jobStatusMap) {
                 var job = runStats.jobStatusMap[key];
-                var cluster = job['scope'];
+                var clusterId = job['scope'];
                 var running = (!job['isComplete'] && !job['isSuccessful']);                
                 // Update clusters, nodes, edges here with runtime data
+
+                self.clusters[clusterId].running(running);
+                
+                if (job['mapProgress'] < 1.0) {
+                    self.clusters[clusterId].runType('running-map');    
+                } else if (job['totalReducers'] > 0) {
+                    self.clusters[clusterId].runType('running-reduce');    
+                }
             }
         };
      },
