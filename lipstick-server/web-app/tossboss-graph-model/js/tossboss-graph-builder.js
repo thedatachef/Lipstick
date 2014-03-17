@@ -127,7 +127,7 @@
                 var result = [];
                 if (expressions.length > 1) {
                     var tr = {rowType: 'join-expression-header'}
-                    var cols = []
+                    var cols = [];
                     for (var key in join.expression) {
                         cols.push({field: (key ? key : "null")});
                     }
@@ -135,8 +135,8 @@
                     result.push(tr);
                 }
                 for (var i = 0; i < expressions[0].length; i++) {
-                    var tr = {rowType: 'join-expression-body'}
-                    var cols = []
+                    var tr = {rowType: 'join-expression-body'};
+                    var cols = [];
                     for (var j = 0; j < expressions.length; j++) {
                         cols.push({field: expressions[j][i]});
                     }
@@ -153,7 +153,7 @@
                 var operString = self.schemaString().substring(1, self.schemaString().length - 1);
                 for (var i = 0; i < self.predecessors().length; i++) {
                     var pred = self.predecessors()[i];
-                    if (typeof(pred) === GraphBuilder.Node && pred.schemaString()) {
+                    if (pred instanceof GraphBuilder.Node && pred.schemaString()) {
                         var predString = pred.schemaString().substring(1, pred.schemaString().length - 1);
                         if (predString != operString) {
                             return false;
@@ -168,7 +168,7 @@
         });
         
         self.displaySchema = ko.computed(function () {                                             
-            if (self.location().line() != null
+            if (self.location().line() != null                
                 && !self.schemaEqualsPredecessor()
                 && self.operator() != "LOSplit"
                 && self.operator() != "LOFilter"
@@ -212,7 +212,7 @@
         });
 
         self.label = ko.computed(function() {
-            return "<div class=\"node-html\" data-bind=\"template: {name: \'node-template\', data: nodes['"+self.uid()+"']}\"></div>"
+            return "<div class=\"node-html\" data-bind=\"template: {name: \'node-template\', data: nodes['"+self.uid()+"']}\"></div>";
         });
      },
      
@@ -221,7 +221,9 @@
         self.id = ko.observable(data.id);       // "u-v"
         self.u = ko.observable(data.u);         // From node id
         self.v = ko.observable(data.v);         // To node id
-        self.recordCount = ko.observable('0'); // Edge value
+
+        self.scope = ko.observable('');
+        self.recordCount = ko.observable(''); // Edge value
                   
         self.label = ko.computed(function() {
             return self.recordCount();                                      
@@ -275,6 +277,16 @@
         };                               
          
         self.addEdge = function(edge) {
+            //
+            // Boundary edge?
+            //            
+            var source = self.node(edge.u());
+            var target = self.node(edge.v());
+            if (source.mapReduce().jobId() != target.mapReduce().jobId() && source.operator() !== 'LOSplit') {
+                edge.scope(source.mapReduce().jobId()); // out edge
+                edge.recordCount('0');
+            }
+
             if (!self.graph.hasEdge(edge.id())) {
                 self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label()});
              }  
@@ -343,23 +355,52 @@
                 } else if (job['totalReducers'] > 0) {
                     self.clusters[clusterId].runType('running-reduce');    
                 }
+
+                if (job.counters.hasOwnProperty('Map-Reduce Framework')) {
+
+                    if (job.counters.hasOwnProperty('MultiStoreCounters')) {
+                        _.each(jobStats.counters.MultiStoreCounters.counters, function(count, counter) {
+                                   GraphView.displayRecordCount(scopeId+'-out', count, counter);
+                        });
+                    }
+                    else {
+                        count_out = (job.counters['Map-Reduce Framework'].counters.hasOwnProperty('Reduce output records')) ? job.counters['Map-Reduce Framework'].counters['Reduce output records'] : '';
+                        if (job.totalReducers === 0) {
+                             count_out = jobStats['counters']['Map-Reduce Framework']['counters']['Map output records'];
+                        }
+                        for (var edgeId in self.edges) {
+                            var edge = self.edges[edgeId];
+                            if (edge.scope() === clusterId) {                            
+                                edge.recordCount(count_out);
+                            }
+                        }
+                    }
+                }                
             }
         };
      },
 
-    // FIXME - yes, obviously this is bad code; works for now
+    addNodes: function(data, nodes, vm) {
+        for (var i = 0; i < nodes.length; i++) {
+            var node = data[nodes[i]];
+            vm.addNode(new GraphBuilder.Node(node));            
+        }
+    },
+
+    addEdges: function(data, node, preds, vm) {
+        for (var i = 0; i < preds.length; i++) {
+            var pred = data[preds[i]];
+            vm.addEdge(new GraphBuilder.Edge({id: pred.uid+"->"+node.uid, u: pred.uid, v: node.uid}));
+        }
+    },
+
     populateViewModel: function (data, vm, callback) {
-        for (var key in data) {
-            if (data.hasOwnProperty(key)) {
-                var node = data[key];               
-                vm.addNode(new GraphBuilder.Node(node));
-                if (node.predecessors && node.predecessors.length > 0) {
-                    for (var i = 0; i < node.predecessors.length; i++) {
-                        var pred = data[node.predecessors[i]];
-                        vm.addNode(new GraphBuilder.Node(pred)); // Trying to add the node too many times; ok for now
-                        vm.addEdge(new GraphBuilder.Edge({id: pred.uid+"->"+node.uid, u: pred.uid, v: node.uid}));
-                    }                    
-                }
+        var nodes = Object.keys(data);
+        GraphBuilder.addNodes(data, nodes, vm);
+        for (var i = 0; i < nodes.length; i++) {
+            var node = data[nodes[i]];
+            if (node.predecessors && node.predecessors.length > 0) {
+                GraphBuilder.addEdges(data, node, node.predecessors, vm);
             }
         }
         callback(vm.getGraph());
