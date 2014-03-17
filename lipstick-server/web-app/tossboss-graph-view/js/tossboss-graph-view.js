@@ -185,10 +185,9 @@
         // Draw with dagre
         //
         var graphData = GraphModel.getGraph();        
-        GraphRenderer.renderGraph(graphData.graph, function(svgData) {
-          $(GraphView.options.graphSel).empty();                                      
+        GraphRenderer.renderGraph(graphData, function(svgData, renderer) {
+          $(GraphView.options.graphSel).empty();                     
           $(GraphView.options.graphSel).html(svgData);
-          ko.applyBindings(graphData.viewModel, $('svg')[0]);
         });
         
         // 
@@ -631,7 +630,7 @@
             $('.'+jobId+' div.map').html(mapProgress+'%');
             $('.'+jobId+' div.reduce').css('width',reduceProgress+'%');
             $('.'+jobId+' div.reduce').html(reduceProgress+'%');
-
+        
             // Add class for finished job.
             var jobWarnings = GraphView.findJobWarnings(jobStats);
             if ((0 < jobWarnings.length) && (GraphView.options.showWarnings)) {
@@ -642,13 +641,13 @@
             else if (jobStats.isComplete && !jobStats.isSuccessful) {
                 $('g#'+scopeId).attr('class','cluster fail');
             }
-
+        
             /* And rendering warnings if complete or not */
             if ((0 < jobWarnings.length) && (GraphView.options.showWarnings)) {
                 GraphView.renderJobWarnings(jobId, scopeId, jobWarnings);
             }
         });
-
+        
         // Draw script progress bar.
         $('div.navbar .progress').show();
         $('div.navbar .progress').removeClass('active').removeClass('progress-success').removeClass('progress-info').removeClass('progress-danger').removeClass('progress-warning').removeClass('progress-striped');
