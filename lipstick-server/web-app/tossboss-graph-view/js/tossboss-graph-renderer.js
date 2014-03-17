@@ -34,7 +34,8 @@
 
     renderGraph: function (graphData, callback) {        
         var graph = graphData.graph;
-        var renderer = new dagreD3.Renderer();
+        var layout = dagreD3.layout().rankSep(60);
+        var renderer = new dagreD3.Renderer().layout(layout);
         var oldDrawEdges = renderer.drawEdgePaths();
         renderer.drawNodes(function(graph, root) {
           var nodes = graph.nodes().filter(function(u) { return !GraphRenderer.isComposite(graph, u); });
@@ -64,9 +65,10 @@
 
           return edgePaths;                                   
         });
-
+        
         var svg = d3.select('#pig-graph').append('svg').append('g');        
         renderer.edgeInterpolate('linear');
+        renderer.edgeTension(1.0);
         renderer.run(graph, svg);
         
         //
