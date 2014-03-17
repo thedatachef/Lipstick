@@ -1,6 +1,5 @@
 ;GraphRenderer = {    
-    addNode: function(node, root) {
-        
+    addNode: function(node, root, viewModel) {
         var labelSvg = root.append('g');
         
         var fo = labelSvg
@@ -12,7 +11,10 @@
             .append('xhtml:div')
             .style('float', 'left')
             .html(function() { return node.label; })
-            .each(function() {
+            .each(function() {               
+               // Apply bindings here so html is rendered and the bbox 
+               // can be computed
+               ko.applyBindings(viewModel, d3.select(this).node());
                w = this.clientWidth;
                h = this.clientHeight;
             });
@@ -30,7 +32,8 @@
         return 'children' in graph && graph.children(u).length;
     },
 
-    renderGraph: function (graph, callback) {        
+    renderGraph: function (graphData, callback) {        
+        var graph = graphData.graph;
         var renderer = new dagreD3.Renderer();
         var oldDrawEdges = renderer.drawEdgePaths();
         renderer.drawNodes(function(graph, root) {
@@ -46,8 +49,8 @@
               .enter()
               .append('g')
               .attr('class', 'node');
-                               
-          svgNodes.each(function(u) { GraphRenderer.addNode(graph.node(u), d3.select(this)); });          
+
+          svgNodes.each(function(u) { GraphRenderer.addNode(graph.node(u), d3.select(this), graphData.viewModel); });          
           svgNodes.attr('id', function(u) { return u; });
                                       
           return svgNodes;
@@ -95,18 +98,17 @@
               if (top < subBox.minY || subBox.minY == null) { subBox.minY = top; }
             });
 
-                
             // Get view model data for cluster            
             var clusterData = graph.node(subGraphs[i]).data;
+
             var cluster = svg.insert('g', ':first-child')
                 .attr('id', subGraphs[i])
-                .classed('cluster', true);
+                .attr('data-bind', 'attr: {class: css}');
 
             cluster
                 .append('title')
                     .text(subGraphs[i].split('-')[1]);
                         
-
             cluster
                 .append('rect')
                     .attr('x', subBox.minX - viewMargin)
@@ -117,7 +119,7 @@
                     .attr('stroke', 'black')
                     .attr('stroke-width', '1.5px')
                     .style('opacity', 0.6);
-
+            
             ko.applyBindings(clusterData, cluster.node());
         }
 
@@ -127,6 +129,6 @@
         var viewBox = (-viewMargin)+" "+(-viewMargin)+" "+bbox.width+" "+(bbox.height+100);
         var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\" viewBox=\""+viewBox+"\">"+svg.html()+"</svg>";
 
-        callback(result);
+        callback(result, renderer);
     }
 };

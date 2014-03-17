@@ -69,7 +69,7 @@
             return colspan ? colspan : "2";
         });
 
-        self.operationRow = ko.computed(function () {
+        self.operation = ko.computed(function() {
             var info = self.additionalInfo();
             if (info) {
                 info = " (" + info + ")";
@@ -79,13 +79,12 @@
                 op = "GROUP";
             } else {
                 op = self.operator().substring(2).toUpperCase();
-            }
-            var result = "<tr class=\"node-row operation-row {{opType}}\"><td colspan=\"{{colspan}}\">"+op+info+"</td></tr>";
-            return result;
+            }                                         
+            return op+info;   
         });
 
-        self.miscRows = ko.computed(function () {
-            var expression = null;
+        self.miscRows = ko.computed(function() {
+          var expression = null;
             var result = [];
             if (self.operator() === "LOFilter") {
                 expression = self.data.expression;
@@ -94,7 +93,7 @@
                 expression = self.data.expression;
             }
             if (expression) {
-                result.push("<tr class=\"node-row misc-row expression-row\"><td colspan=\"{{colspan}}\">"+expression+"</td></tr>");
+                result.push({rowType: 'expression-row', colspan: self.getColSpan(), text: expression});
             }
             var storageLocation = null;
             var storageFunction = null;
@@ -106,14 +105,13 @@
                 storageFunction = self.data.storageFunction;
             }
             if (storageLocation) {
-                result.push("<tr class=\"node-row misc-row uri-row\"><td colspan=\"{{colspan}}\">"+storageLocation+"</td></tr>");
-                result.push("<tr class=\"node-row misc-row function-row\"><td colspan=\"{{colspan}}\">"+storageFunction+"</td></tr>");
-                result.push("<tr data-bind=\"template: {name: \'node-template\', data: nodes['"+self.uid()+"']}\"></tr>");
+                result.push({rowType: 'uri-row', colspan: self.getColSpan(), text: storageLocation});
+                result.push({rowType: 'function-row', colspan: self.getColSpan(), text: storageFunction});
             }
             return result;
         });
-
-        self.joinExpressions = ko.computed(function () {
+        
+        self.joinColumns = ko.computed(function () {
             if (self.operator() === "LOJoin" || self.operator() === "LOCogroup") {
                 var join;
                 if (self.operator() === "LOJoin") {
@@ -128,30 +126,28 @@
                 }
                 var result = [];
                 if (expressions.length > 1) {
-                    var tr = "<tr class=\"node-row join-expression join-expression-header\">";
+                    var tr = {rowType: 'join-expression-header'}
+                    var cols = []
                     for (var key in join.expression) {
-                        tr += "<td>";
-                        tr += (key ? key : "null");
-                        tr += "</td>";
+                        cols.push({field: (key ? key : "null")});
                     }
-                    tr += "</tr>";
+                    tr.cols = cols;
                     result.push(tr);
                 }
                 for (var i = 0; i < expressions[0].length; i++) {
-                    var tr = "<tr class=\"node-row join-expression join-expression-body\">";
+                    var tr = {rowType: 'join-expression-body'}
+                    var cols = []
                     for (var j = 0; j < expressions.length; j++) {
-                        tr += "<td>";
-                        tr += expressions[j][i];
-                        tr += "</td>";
+                        cols.push({field: expressions[j][i]});
                     }
-                    tr += "</tr>";
+                    tr.cols = cols;
                     result.push(tr);
                 }
                 return result;
             }
             return [];                                               
         });
-
+        
         self.schemaEqualsPredecessor = ko.computed(function () {
             if (self.schemaString()) {
                 var operString = self.schemaString().substring(1, self.schemaString().length - 1);
@@ -191,11 +187,10 @@
                 if (self.schema()) {
                     for (var i = 0; i < self.schema().length; i++) {
                         var fieldSchema = self.schema()[i];
-
-                        var tr = "<tr class=\"node-row field-schema-row\">";                    
-                        tr += "<td>"+(fieldSchema.alias() ? fieldSchema.alias() : "?")+"</td>";
-                        tr += "<td>"+fieldSchema.type()+"</td>";
-                        tr += "</tr>";
+                        var tr = {
+                            alias: (fieldSchema.alias() ? fieldSchema.alias() : "?"),
+                            type: fieldSchema.type()
+                        }; 
                         result.push(tr);
                     }
                 }
@@ -203,39 +198,6 @@
             return result;
         });
         
-        self.displayTemplate = ko.computed(function () {
-            var resultRows = [];
-            resultRows.push('<div class="node-html">');                                               
-            resultRows.push('<table><tbody>');                                               
-
-            // Operation row                                               
-            resultRows.push(self.operationRow());
-                                               
-            // Misc rows
-            for (var i = 0; i < self.miscRows().length; i++) {                                               
-                resultRows.push(self.miscRows()[i]);
-            }
-                                               
-            // Alias row
-            if (self.alias() && self.operator() != "LOSplit") {
-                resultRows.push("<tr class=\"node-row alias-row\"><td colspan=\"{{colspan}}\">"+self.alias()+"</td></tr>");
-            }
-          
-            // Join expression
-            for (var i = 0; i < self.joinExpressions().length; i++) {
-                resultRows.push(self.joinExpressions()[i]);
-            }                                     
-                                               
-            // Schema rows
-            for (var i = 0; i < self.schemaRows().length; i++) {
-                resultRows.push(self.schemaRows()[i]);
-            }
-                                               
-            resultRows.push('</tbody></table>');                                               
-            resultRows.push('</div>');                                               
-            return Handlebars.compile(resultRows.join(''));
-        });        
-
         self.opType = ko.computed(function () {
             if (self.mapReduce()) {
                 var stepType = self.mapReduce().stepType();
@@ -250,8 +212,7 @@
         });
 
         self.label = ko.computed(function() {
-            var template = self.displayTemplate();
-            return template({opType: self.opType(), colspan: self.getColSpan()});
+            return "<div class=\"node-html\" data-bind=\"template: {name: \'node-template\', data: nodes['"+self.uid()+"']}\"></div>"
         });
      },
      
