@@ -50,7 +50,7 @@
               .enter()
               .append('g')
               .attr('class', 'node');
-
+            
           svgNodes.each(function(u) { GraphRenderer.addLabel(graph.node(u), d3.select(this), graphData.viewModel); });          
           svgNodes.attr('id', function(u) { return u; });
                                       
@@ -123,7 +123,7 @@
 
             var cluster = svg.insert('g', ':first-child')
                 .attr('id', subGraphs[i])
-                .attr('data-bind', 'attr: {class: css}');
+                .attr('data-bind', 'attr {class: clusters[\''+subGraphs[i]+'\'].css}');
 
             cluster
                 .append('title')
@@ -140,7 +140,6 @@
                     .attr('stroke-width', '1.5px')
                     .style('opacity', 0.6);
             
-            ko.applyBindings(clusterData, cluster.node());
         }
 
         var bbox = svg.node().getBBox();

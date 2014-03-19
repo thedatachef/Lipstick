@@ -224,7 +224,6 @@
 
         self.scope = ko.observable('');
         self.recordCount = ko.observable(''); // Edge value
-                  
         self.label = ko.computed(function() {
             return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
         });
@@ -284,7 +283,7 @@
             var target = self.node(edge.v());
             if (source.mapReduce().jobId() != target.mapReduce().jobId() && source.operator() !== 'LOSplit') {
                 edge.scope(source.mapReduce().jobId()); // out edge
-                edge.recordCount('0');
+                edge.recordCount(0);
             }
 
             if (!self.graph.hasEdge(edge.id())) {
@@ -341,7 +340,6 @@
         };
 
         self.update = function(runStats) {
-            console.log(runStats.jobStatusMap);                
             for (var key in runStats.jobStatusMap) {
                 var job = runStats.jobStatusMap[key];
                 var clusterId = job['scope'];
@@ -366,11 +364,11 @@
                     else {
                         count_out = (job.counters['Map-Reduce Framework'].counters.hasOwnProperty('Reduce output records')) ? job.counters['Map-Reduce Framework'].counters['Reduce output records'] : '';
                         if (job.totalReducers === 0) {
-                             count_out = jobStats['counters']['Map-Reduce Framework']['counters']['Map output records'];
+                             count_out = job['counters']['Map-Reduce Framework']['counters']['Map output records'];
                         }
-                        for (var edgeId in self.edges) {
+                        for (var edgeId in self.edges) {                            
                             var edge = self.edges[edgeId];
-                            if (edge.scope() === clusterId) {                            
+                            if (edge.scope() === clusterId) {
                                 edge.recordCount(count_out);
                             }
                         }

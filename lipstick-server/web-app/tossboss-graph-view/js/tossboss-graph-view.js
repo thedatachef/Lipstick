@@ -47,8 +47,10 @@
         nodeSel:  'g.node',
         edgeSel:  'g.edge',
         pageSel:  '.page',
-        runningMapSel: 'g.cluster.running-map > polygon',
-        runningRedSel: 'g.cluster.running-reduce > polygon',
+        // runningMapSel: 'g.cluster.running-map > polygon',
+        // runningRedSel: 'g.cluster.running-reduce > polygon',
+        runningMapSel: 'g.cluster.running-map > rect',
+        runningRedSel: 'g.cluster.running-reduce > rect',
         graphState : {},
         showWarnings: true,
     },
@@ -188,6 +190,7 @@
         GraphRenderer.renderGraph(graphData, function(svgData, renderer) {
           $(GraphView.options.graphSel).empty();                     
           $(GraphView.options.graphSel).html(svgData);
+          ko.applyBindings(graphData.viewModel, $(GraphView.options.graphSel)[0]);
         });
         
         // 
