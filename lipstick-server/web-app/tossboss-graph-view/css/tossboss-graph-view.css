@@ -55,8 +55,8 @@ img.center {
     margin-left: 5px;
 }
 
-.edgeLabel rect {
-  fill: #fff;
+.edge-html {
+  background-color: #fff;
 }
 
 .edge path {

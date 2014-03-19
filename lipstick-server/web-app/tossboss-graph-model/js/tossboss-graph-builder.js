@@ -126,7 +126,7 @@
                 }
                 var result = [];
                 if (expressions.length > 1) {
-                    var tr = {rowType: 'join-expression-header'}
+                    var tr = {rowType: 'join-expression-header'};
                     var cols = [];
                     for (var key in join.expression) {
                         cols.push({field: (key ? key : "null")});
@@ -226,7 +226,7 @@
         self.recordCount = ko.observable(''); // Edge value
                   
         self.label = ko.computed(function() {
-            return self.recordCount();                                      
+            return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
         });
     },
     

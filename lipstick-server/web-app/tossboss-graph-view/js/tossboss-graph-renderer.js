@@ -1,5 +1,5 @@
 ;GraphRenderer = {    
-    addNode: function(node, root, viewModel) {
+    addLabel: function(node, root, viewModel) {
         var labelSvg = root.append('g');
         
         var fo = labelSvg
@@ -51,7 +51,7 @@
               .append('g')
               .attr('class', 'node');
 
-          svgNodes.each(function(u) { GraphRenderer.addNode(graph.node(u), d3.select(this), graphData.viewModel); });          
+          svgNodes.each(function(u) { GraphRenderer.addLabel(graph.node(u), d3.select(this), graphData.viewModel); });          
           svgNodes.attr('id', function(u) { return u; });
                                       
           return svgNodes;
@@ -64,6 +64,24 @@
           edgePaths.append('title').text(function(edge) { return edge;});
 
           return edgePaths;                                   
+        });
+
+        renderer.drawEdgeLabels(function (graph, root) {
+            var svgEdgeLabels = root
+                .selectAll('g.edgeLabel')
+                .classed('enter', false)
+                .data(graph.edges(), function (e) { return e; });
+
+            svgEdgeLabels.selectAll('*').remove();
+
+            svgEdgeLabels
+                .enter()
+                .append('g')
+                .attr('class', 'edgeLabel enter');
+
+            svgEdgeLabels.each(function(e) { GraphRenderer.addLabel(graph.edge(e), d3.select(this), graphData.viewModel); });
+
+            return svgEdgeLabels;
         });
         
         var svg = d3.select('#pig-graph').append('svg').append('g');        
