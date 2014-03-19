@@ -226,7 +226,13 @@
         self.u = ko.observable(data.u);         // From node id
         self.v = ko.observable(data.v);         // To node id
 
+        self.storageLocation = ko.observable('');
+        self.intermediate = ko.observable(false);
+        self.boundaryEdge = ko.observable(false);
+        self.inEdge = ko.observable(false);
+        self.outEdge = ko.observable(false);        
         self.scope = ko.observable('');
+        
         self.recordCount = ko.observable(''); // Edge value
         self.label = ko.computed(function() {
             return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
@@ -257,17 +263,18 @@
         self.edges = {};
         self.clusters = {};
 
+        self.s3StorageFunctions = ['PigStorage','AegisthusBagLoader','AegisthusMapLoader','PartitionedLoader','PartitionedStorer'];
+        self.dumpStorageFunctions = ['TFileStorage','InnerStorage'];
+        
         self.clickedCluster = function (data, event) {
             $(event.currentTarget).trigger('clickMRJob.tossboss-graph-view', [event.currentTarget.id]);
         };
 
         self.mouseEnterCluster = function (data, event) {
-            console.log('entering');
             $(event.currentTarget).trigger('mouseEnterMRJob.tossboss-graph-view', [event.currentTarget.id]);
         };
 
         self.mouseLeaveCluster = function (data, event) {
-            console.log('leaving');
             $(event.currentTarget).trigger('mouseLeaveMRJob.tossboss-graph-view', [event.currentTarget.id]);
         };
         
@@ -293,21 +300,53 @@
             }
             self.nodes[node.uid()] = node;
         };                               
-         
+        
         self.addEdge = function(edge) {
             //
             // Boundary edge?
             //            
             var source = self.node(edge.u());
             var target = self.node(edge.v());
+
+            // In edge
+            if (source.predecessors().length == 0) {
+                edge.inEdge(true);
+                edge.recordCount(0); // so that renderer works. FIXME - renderer edgeLabel size needs to be dynamic
+                if (source.data.hasOwnProperty('storageLocation')) {
+                    var storageLocation = source.data.storageLocation.slice(-40);
+                    if (_.contains(self.s3StorageFunctions, source.data.storageFunction)) {
+                        storageLocation = storageLocation.split('/').reverse()[0].slice(-40);
+                    }
+                    edge.storageLocation(storageLocation);
+                }
+            }
+
+            // Out edge
+            if (target.successors().length == 0) {
+                edge.outEdge(true);
+                edge.recordCount(0); 
+                if (target.data.hasOwnProperty('storageLocation')) {
+                    var storageLocation = target.data.storageLocation.slice(-40);
+                    if (_.contains(self.s3StorageFunctions, target.data.storageFunction)) {
+                        storageLocation = storageLocation.split('/').reverse()[0].slice(-40);
+                        edge.storageLocation(storageLocation);
+                    }
+                    if (_.contains(self.dumpStorageFunctions, target.data.storageFunction)) {
+                        edge.intermediate(true);
+                    }
+                }
+            }
+
+            // Boundary edge
             if (source.mapReduce().jobId() != target.mapReduce().jobId() && source.operator() !== 'LOSplit') {
-                edge.scope(source.mapReduce().jobId()); // out edge
+                edge.boundaryEdge(true);
                 edge.recordCount(0);
             }
 
             if (!self.graph.hasEdge(edge.id())) {
                 self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label()});
-             }  
+            }
+            edge.scope(source.mapReduce().jobId());
             self.edges[edge.id()] = edge;
         };
 
@@ -375,19 +414,47 @@
 
                 if (job.counters.hasOwnProperty('Map-Reduce Framework')) {
 
-                    if (job.counters.hasOwnProperty('MultiStoreCounters')) {
-                        _.each(jobStats.counters.MultiStoreCounters.counters, function(count, counter) {
-                                   GraphView.displayRecordCount(scopeId+'-out', count, counter);
+                    if (job.counters.hasOwnProperty('MultiInputCounters')) {
+                        _.each(job.counters.MultiInputCounters.counters, function(count, counter) {
+                            var counterStorageLocation = counter.split('_').slice(2).join('_');
+                            for (var edgeId in self.edges) {                            
+                                var edge = self.edges[edgeId];
+                                if (edge.storageLocation() == counterStorageLocation && edge.inEdge() && edge.scope() === clusterId) {
+                                    edge.recordCount(count);
+                                }
+                            }
                         });
                     }
                     else {
+                        count_in = job.counters['Map-Reduce Framework'].counters['Map input records'];
+                        for (var edgeId in self.edges) {                            
+                            var edge = self.edges[edgeId];
+                            if (edge.inEdge() && edge.scope() === clusterId) {
+                                edge.recordCount(count_in);
+                            }
+                        }
+                    }
+                    
+                    if (job.counters.hasOwnProperty('MultiStoreCounters')) {
+                        _.each(job.counters.MultiStoreCounters.counters, function(count, counter) {
+                            var counterStorageLocation = counter.split('_').slice(2).join('_');
+                            for (var edgeId in self.edges) {                            
+                                var edge = self.edges[edgeId];
+                                if (edge.storageLocation() == counterStorageLocation && edge.outEdge() && edge.scope() === clusterId) {
+                                    edge.recordCount(count);
+                                }
+                            }
+                        });
+                    }
+                    else {
+                        // Update out edges
                         count_out = (job.counters['Map-Reduce Framework'].counters.hasOwnProperty('Reduce output records')) ? job.counters['Map-Reduce Framework'].counters['Reduce output records'] : '';
                         if (job.totalReducers === 0) {
                              count_out = job['counters']['Map-Reduce Framework']['counters']['Map output records'];
                         }
                         for (var edgeId in self.edges) {                            
-                            var edge = self.edges[edgeId];
-                            if (edge.scope() === clusterId) {
+                            var edge = self.edges[edgeId];                            
+                            if (edge.boundaryEdge() || edge.outEdge() && edge.scope() === clusterId) {
                                 edge.recordCount(count_out);
                             }
                         }

@@ -429,14 +429,8 @@
         var dumpStorageFunctions = ['TFileStorage','InnerStorage'];
         // Get Pig data.
         var pigData = GraphModel.getPigData();
-        // Add data to each cluster.
-        _.each($('g.cluster'), function(element) {
-            var clusterTitle = $(element).find('title').text();
-            var mapRedJobId  = 'scope-' + clusterTitle.replace('cluster_scope','');
-            $(element).data('mr-jobid', mapRedJobId);
-            $(element).attr('id', mapRedJobId);
-        });
-        // Add data to each node.
+
+        // Add line number to each node
         _.each(pigData, function(aliasInfo, id) {
             var lineNumber = -1;
             if (aliasInfo['location']['macro'].length == 0) {
@@ -444,6 +438,7 @@
             }
             $('g#'+id).data('line-number',lineNumber);
         });
+        
         // Add data to each edge.
         _.each($('g.edge'), function(element) {
             // Get edge's start and end node objects.
