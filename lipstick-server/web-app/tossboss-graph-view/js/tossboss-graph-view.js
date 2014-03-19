@@ -47,8 +47,6 @@
         nodeSel:  'g.node',
         edgeSel:  'g.edge',
         pageSel:  '.page',
-        // runningMapSel: 'g.cluster.running-map > polygon',
-        // runningRedSel: 'g.cluster.running-reduce > polygon',
         runningMapSel: 'g.cluster.running-map > rect',
         runningRedSel: 'g.cluster.running-reduce > rect',
         graphState : {},
@@ -181,7 +179,6 @@
 
         // Set GraphModel graph type and get SVG data for type.
         GraphModel.options.graphType = type.toLowerCase();
-        var svgData = GraphModel.getSvgData(); // Render graph instead using Dagre
 
         //
         // Draw with dagre
@@ -193,16 +190,7 @@
           ko.applyBindings(graphData.viewModel, $(GraphView.options.graphSel)[0]);
         });
         
-        // 
-        // Clear current graph and draw new graph.
-        // $(GraphView.options.graphSel).empty();
-        // $(GraphView.options.graphSel).html(svgData);
-        
-        // The SVG has a white background polygon, remove it.
-        $('g.graph > polygon').remove();
-        $('.page').scrollTop(0);
-
-        // Restore to previous state if it exists
+        // Restore to previous zoom state if it exists
         if(GraphView.options.graphState[lowerType]) {
             GraphView.zoom(GraphView.options.graphState[lowerType].zoom);
             $(GraphView.options.pageSel).scrollTop(GraphView.options.graphState[lowerType].scroll.y);
@@ -212,22 +200,6 @@
             scrollTo(0,0);
         }
 
-        // Bind events.
-        $('.node').on('click', function(e) {
-            e.stopPropagation();
-            $(this).trigger('clickLogicalOperator.tossboss-graph-view', [e.currentTarget.id]);
-        });
-        $('.cluster').on('click', function(e) {
-            e.stopPropagation();
-            $(this).trigger('clickMRJob.tossboss-graph-view', [e.currentTarget.id]);
-        });
-        $('.cluster').hover(
-            function(e) {
-                $(this).trigger('mouseEnterMRJob.tossboss-graph-view', [e.currentTarget.id]);
-            },
-            function(e) {
-                $(this).trigger('mouseLeaveMRJob.tossboss-graph-view', [e.currentTarget.id]);
-        });
         $(document).trigger('drawGraph.tossboss-graph-view', [type]);
     },
     /**
@@ -675,9 +647,9 @@
             $('div.navbar .progress').removeClass('active');
         }
         // Change bgcolor of finished map-reduce jobs.
-        $('g.cluster.success polygon').css('fill','#CFE1E8');
-        $('g.cluster.fail polygon').css('fill','#FFEBEB');
-        $('g.cluster.warnings polygon').css('fill','#FFD6AD');
+        $('g.cluster.success rect').css('fill','#CFE1E8');
+        $('g.cluster.fail rect').css('fill','#FFEBEB');
+        $('g.cluster.warnings rect').css('fill','#FFD6AD');
     },
 
     /* Find and construct any warning messages relevant to this specific

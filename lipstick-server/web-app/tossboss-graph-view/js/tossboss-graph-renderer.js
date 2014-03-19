@@ -123,7 +123,12 @@
 
             var cluster = svg.insert('g', ':first-child')
                 .attr('id', subGraphs[i])
-                .attr('data-bind', 'attr {class: clusters[\''+subGraphs[i]+'\'].css}');
+                .attr('data-bind',
+                      'attr {class: clusters[\''+subGraphs[i]+'\'].css},'+
+                      'click: clickedCluster,' +
+                      'clickBubble: false, '+
+                      'event: { mouseover: mouseEnterCluster, mouseout: mouseLeaveCluster }'
+                     );
 
             cluster
                 .append('title')

@@ -38,6 +38,10 @@
         self.mapReduce = ko.observable(new GraphBuilder.MapReduce(data.mapReduce));
         self.schemaString = ko.observable(data.schemaString);
         self.data = data;        
+
+        self.clicked = function (data, event, thing) {
+            $(event.currentTarget).trigger('clickLogicalOperator.tossboss-graph-view', [data.uid()]);
+        };
         
         self.additionalInfo = ko.computed(function () {
             if (self.location().macro().length > 0) {
@@ -234,12 +238,13 @@
         self.id = ko.observable(clusterId);
         self.running = ko.observable(false);
         self.runType = ko.observable('');
+        
         self.css = ko.computed(function() {
-          if (self.running()) {
-              return 'cluster running '+self.runType();
-          } else {
+            if (self.running()) {
+                return 'cluster running '+self.runType();
+            } else {
               return 'cluster';
-          }   
+            }   
         });
     },
     
@@ -251,6 +256,20 @@
         self.nodes = {};
         self.edges = {};
         self.clusters = {};
+
+        self.clickedCluster = function (data, event) {
+            $(event.currentTarget).trigger('clickMRJob.tossboss-graph-view', [event.currentTarget.id]);
+        };
+
+        self.mouseEnterCluster = function (data, event) {
+            console.log('entering');
+            $(event.currentTarget).trigger('mouseEnterMRJob.tossboss-graph-view', [event.currentTarget.id]);
+        };
+
+        self.mouseLeaveCluster = function (data, event) {
+            console.log('leaving');
+            $(event.currentTarget).trigger('mouseLeaveMRJob.tossboss-graph-view', [event.currentTarget.id]);
+        };
         
         self.addNode = function(node) {             
             if (node.mapReduce() && node.mapReduce().jobId()) {

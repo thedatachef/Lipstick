@@ -124,26 +124,28 @@
     </body>
 
     <script type="text/html" id="node-template">
-      <table><tbody>
-        <tr class="node-row operation-row" data-bind="css: opType"><td data-bind="attr: {colspan: getColSpan}, text: operation"></td></tr>
-        
-        <!-- ko foreach: miscRows -->
-        <tr class="node-row misc-row" data-bind="css: rowType"><td data-bind="attr: {colspan: colspan}, text: text"></td></tr>
-        <!-- /ko -->
-        
-        <tr class="node-row alias-row"><td data-bind="attr: {colspan: getColSpan}, text: alias"></td></tr>
+      <table data-bind="click: clicked, clickBubble: false">
+        <tbody>
+          <tr class="node-row operation-row" data-bind="css: opType"><td data-bind="attr: {colspan: getColSpan}, text: operation"></td></tr>
+          
+          <!-- ko foreach: miscRows -->
+          <tr class="node-row misc-row" data-bind="css: rowType"><td data-bind="attr: {colspan: colspan}, text: text"></td></tr>
+          <!-- /ko -->
+          
+          <tr class="node-row alias-row"><td data-bind="attr: {colspan: getColSpan}, text: alias"></td></tr>
 
-        <!-- ko foreach: joinColumns -->
-        <tr class="node-row join-expression" data-bind="css: rowType, foreach: cols">
-          <td data-bind="text: field"></td>
-        </tr>
-        <!-- /ko -->
+          <!-- ko foreach: joinColumns -->
+          <tr class="node-row join-expression" data-bind="css: rowType, foreach: cols">
+            <td data-bind="text: field"></td>
+          </tr>
+          <!-- /ko -->
 
-        <!-- ko foreach: schemaRows -->
-        <tr class="node-row field-schema-row"><td data-bind="text: alias"></td><td data-bind="text: type"></td></tr>
-        <!-- /ko -->
-        
-      </tbody></table>
+          <!-- ko foreach: schemaRows -->
+          <tr class="node-row field-schema-row"><td data-bind="text: alias"></td><td data-bind="text: type"></td></tr>
+          <!-- /ko -->
+          
+        </tbody>
+      </table>
     </script>
 
     <script type="text/html" id="edge-template">
