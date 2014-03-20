@@ -1,9 +1,10 @@
 ;GraphRenderer = {    
     addLabel: function(node, root, viewModel) {
         var labelSvg = root.append('g');
-        
         var fo = labelSvg
             .append('foreignObject')
+            .classed('foreign-html', true)
+            .classed(node.type+'-'+node.id.replace('>',''), true) 
             .attr('width', '100000');
 
         var w, h;

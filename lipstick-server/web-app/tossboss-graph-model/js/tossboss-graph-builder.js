@@ -234,6 +234,30 @@
         self.scope = ko.observable('');
         
         self.recordCount = ko.observable(''); // Edge value
+
+        //
+        // When the recordCount is updated we need to expand
+        // the text box
+        //
+        self.recordCount.subscribe(function (newValue) {            
+            var width;
+            var edgeLabel = d3.select('.foreign-html.edge-'+self.id().replace('>',''));
+            var n = edgeLabel.select('p');
+            if (n.node()) {
+
+                var oldWidth = n.node().clientWidth;
+                var oldX = n.attr('x');
+                
+                n.html(newValue);
+                
+                var newWidth = n.node().clientWidth;
+                var newX = (oldWidth - newWidth)/2.0 + oldX;
+                
+                edgeLabel.attr('width', newWidth);
+                edgeLabel.attr('x', newX);
+            }
+         });
+
         self.label = ko.computed(function() {
             return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
         });
@@ -289,14 +313,14 @@
             
                 var subGraph = self.subGraphs[jid];
                 if (!subGraph.hasNode(node.uid())) {
-                    subGraph.addNode(node.uid(), {label: node.label()});
+                    subGraph.addNode(node.uid(), {label: node.label(), type: 'node', id: node.uid()});
                 }
             }
                                   
             if (!self.graph.hasNode(node.uid())) {
-                self.graph.addNode(node.uid(), {label: node.label()});               
+                self.graph.addNode(node.uid(), {label: node.label(), type: 'node', id: node.uid()});               
             } else {
-                self.graph.node(node.uid(), {label: node.label()});
+                self.graph.node(node.uid(), {label: node.label(), type: 'node', id: node.uid()});
             }
             self.nodes[node.uid()] = node;
         };                               
@@ -344,7 +368,7 @@
             }
 
             if (!self.graph.hasEdge(edge.id())) {
-                self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label()});
+                self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label(), type: 'edge', id: edge.id()});
             }
             edge.scope(source.mapReduce().jobId());
             self.edges[edge.id()] = edge;
@@ -374,7 +398,7 @@
          
         self.edge = function(edgeId, edge) {
             if (edge) {
-                self.graph.edge(edgeId, {label: edge.label()});
+                self.graph.edge(edgeId, {label: edge.label(), type: 'edge', id: edgeId});
             } else {
                 return self.edges[edgeId];
             }
@@ -382,7 +406,7 @@
  
         self.node = function(nodeId, node) {
             if (node) {
-                return self.graph.node(nodeId, {label: node.label()});
+                return self.graph.node(nodeId, {label: node.label(), type: 'node', id: nodeId});
             } else {
                 return self.nodes[nodeId];
             }
