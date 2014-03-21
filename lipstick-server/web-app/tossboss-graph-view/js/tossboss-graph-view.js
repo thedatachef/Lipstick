@@ -558,8 +558,6 @@
         if (_.find(runStatsData['jobStatusMap'], function(job) { return job['isComplete'] && !job['isSuccessful']; })) {
             isScriptSuccessful = false;
         }
-        // Remove all sample-output-icons (they will get reapplied when record counts are updated).
-        $('.sample-output-icon').remove();
         // Loop through all map-reduce jobs.
         _.each(runStatsData.jobStatusMap, function(jobStats, jobTrackerId) {
             var count_in = 0;
