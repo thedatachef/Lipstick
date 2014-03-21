@@ -246,10 +246,8 @@
             if (n.node()) {
 
                 var oldWidth = n.node().clientWidth;
-                var oldX = n.attr('x');
-                
+                var oldX = parseFloat(edgeLabel.attr('x') ? edgeLabel.attr('x') : 0);
                 n.html(newValue);
-                
                 var newWidth = n.node().clientWidth;
                 var newX = (oldWidth - newWidth)/2.0 + oldX;
                 
