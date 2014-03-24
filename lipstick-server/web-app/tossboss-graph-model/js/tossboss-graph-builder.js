@@ -236,13 +236,31 @@
         self.recordCount = ko.observable(''); // Edge value
         self.edgeCss = ko.computed(function () {
             return self.scope() + '-out';
+        });        
+
+        self.addCommas = function(nStr) {
+            nStr += '';
+            x = nStr.split('.');
+            x1 = x[0];
+            x2 = x.length > 1 ? '.' + x[1] : '';
+            var rgx = /(\d+)(\d{3})/;
+            while (rgx.test(x1)) {
+                x1 = x1.replace(rgx, '$1' + ',' + '$2');
+            }
+            console.log(x1);
+            result = (x1 + x2 == 'undefined') ? '' : x1 + x2;
+            return result;
+        }
+
+        self.formattedRecordCount = ko.computed(function() {
+            return self.addCommas(self.recordCount());
         });
         
         //
         // When the recordCount is updated we need to expand
         // the text box
         //
-        self.recordCount.subscribe(function (newValue) {            
+        self.formattedRecordCount.subscribe(function (newValue) {            
             var width;
             var edgeLabel = d3.select('.foreign-html.edge-'+self.id().replace('>',''));
             
@@ -255,7 +273,7 @@
                 count.html(newValue);
                 var newWidth = count.node().clientWidth+icon.node().clientWidth;
                 var newX = (oldWidth - newWidth)/2.0 + oldX;
-                
+
                 edgeLabel.attr('width', newWidth);
                 edgeLabel.attr('x', newX);
             }

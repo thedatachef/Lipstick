@@ -55,12 +55,14 @@ img.center {
     margin-left: 5px;
 }
 
-.edge-html {
+.edge-html > div {
   background-color: #fff;
 }
 
 .edge-html > i {
-  margin-top: 3%;
+  horizontal-align: middle;
+  margin-left: 100%;
+  margin-top: 2%;
 }
 
 .edge path {
