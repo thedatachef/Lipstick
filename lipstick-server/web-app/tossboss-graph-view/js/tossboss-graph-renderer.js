@@ -59,12 +59,18 @@
         });
 
         renderer.drawEdgePaths(function (graph, root) {
-          var edgePaths = oldDrawEdges(graph, root);
-          edgePaths.attr('id', function(edge, idx) { return "edge"+idx; });
-          edgePaths.classed('edge', true);
-          edgePaths.append('title').text(function(edge) { return edge;});
+            var edgePaths = oldDrawEdges(graph, root);
+            edgePaths.attr('id', function(edge, idx) { return "edge"+idx; });
+            edgePaths.attr('data-start', function(edge, idx) {
+                return edge.split('->')[0];
+            });
+            edgePaths.attr('data-end', function(edge, idx) {
+                return edge.split('->')[1];
+            });
+            edgePaths.classed('edge', true);
+            edgePaths.append('title').text(function(edge) { return edge;});
 
-          return edgePaths;                                   
+            return edgePaths;                                   
         });
 
         renderer.drawEdgeLabels(function (graph, root) {
