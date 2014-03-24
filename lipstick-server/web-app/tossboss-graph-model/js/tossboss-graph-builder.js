@@ -234,7 +234,10 @@
         self.scope = ko.observable('');
         
         self.recordCount = ko.observable(''); // Edge value
-
+        self.edgeCss = ko.computed(function () {
+            return self.scope() + '-out';
+        });
+        
         //
         // When the recordCount is updated we need to expand
         // the text box
@@ -256,6 +259,10 @@
             }
          });
 
+        self.displayExamples = function (data, event) {
+            $(event.currentTarget).trigger('clickEdge.tossboss-graph-view', [self.u(), '', self.scope(), '']);
+        };
+        
         self.label = ko.computed(function() {
             return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
         });

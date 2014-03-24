@@ -151,7 +151,7 @@
     <script type="text/html" id="edge-template">
       <span>
         <p data-bind="text: recordCount"></p>
-        <i class="icon-info-sign sample-output-icon"></i>
+        <i data-bind="visible: boundaryEdge, click: displayExamples, css: edgeCss" class="icon-info-sign sample-output-icon intermediate"></i>
       </span>
     </script>
 
