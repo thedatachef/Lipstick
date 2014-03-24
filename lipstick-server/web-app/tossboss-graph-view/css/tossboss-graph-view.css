@@ -59,6 +59,10 @@ img.center {
   background-color: #fff;
 }
 
+.edge-html > i {
+  margin-top: 3%;
+}
+
 .edge path {
   stroke: black;
   stroke-width: 3px;

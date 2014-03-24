@@ -245,13 +245,15 @@
         self.recordCount.subscribe(function (newValue) {            
             var width;
             var edgeLabel = d3.select('.foreign-html.edge-'+self.id().replace('>',''));
-            var n = edgeLabel.select('p');
-            if (n.node()) {
+            
+            var count = edgeLabel.select('div.edge-record-count');
+            var icon = edgeLabel.select('i');
 
-                var oldWidth = n.node().clientWidth;
+            if (count.node()) {
+                var oldWidth = count.node().clientWidth+icon.node().clientWidth;
                 var oldX = parseFloat(edgeLabel.attr('x') ? edgeLabel.attr('x') : 0);
-                n.html(newValue);
-                var newWidth = n.node().clientWidth;
+                count.html(newValue);
+                var newWidth = count.node().clientWidth+icon.node().clientWidth;
                 var newX = (oldWidth - newWidth)/2.0 + oldX;
                 
                 edgeLabel.attr('width', newWidth);
@@ -433,13 +435,15 @@
                 var running = (!job['isComplete'] && !job['isSuccessful']);                
                 // Update clusters, nodes, edges here with runtime data
 
-                self.clusters[clusterId].running(running);
-                
-                if (job['mapProgress'] < 1.0) {
-                    self.clusters[clusterId].runType('running-map');    
-                } else if (job['totalReducers'] > 0) {
-                    self.clusters[clusterId].runType('running-reduce');    
-                }
+                var cluster = self.clusters[clusterId];
+                if (cluster) {
+                    cluster.running(running);
+                    if (job['mapProgress'] < 1.0) {
+                        cluster.runType('running-map');    
+                    } else if (job['totalReducers'] > 0) {
+                        cluster.runType('running-reduce');    
+                    }
+                }                                
 
                 if (job.counters.hasOwnProperty('Map-Reduce Framework')) {
 
