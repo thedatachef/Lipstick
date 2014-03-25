@@ -233,14 +233,15 @@
         self.outEdge = ko.observable(false);        
         self.scope = ko.observable('');
         
-        self.recordCount = ko.observable(''); // Edge value
         self.edgeCss = ko.computed(function () {
             return self.scope() + '-out';
-        });        
-
+        });
+        
+        self.recordCount = ko.observable('').extend({notify: 'always'}); // Edge value
         self.formattedRecordCount = ko.computed(function() {
             return GraphView.addCommas(self.recordCount());
-        });
+        }).extend({notify: 'always'});
+
         
         //
         // When the recordCount is updated we need to expand
