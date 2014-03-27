@@ -360,76 +360,11 @@
         $(GraphView.options.pageSel).scrollLeft(focusObjLeft - leftOffset - 10);
     },
     /**
-     * Display the object at the target selection with the specified position at target.
-     *
-     * @param {Object} displayObj The object to display
-     * @param {String} targetSel The target selector for the object to be displayed at
-     * @param {String} position The position at target to display ('top', 'bottom', 'left', or 'right')
-     */
-    displayObject: function(displayObj, targetSel, position) {
-        var displayObj = $(displayObj);
-        _.each($(targetSel), function(targetObj, index) {
-            // Get the top, left, height, and width of the TargetObj relative 
-            // to the SVG container
-            var boundingBox = targetObj.getBBox();
-            var matrix  = targetObj.getCTM();
-            var svg = $(targetObj).closest('svg').get(0);
-            var pt_tl  = svg.createSVGPoint();
-            var pt_br  = svg.createSVGPoint();
-
-            pt_tl.x = boundingBox.x; 
-            pt_tl.y = boundingBox.y; 
-            pt_br.x = boundingBox.x + boundingBox.width; 
-            pt_br.y = boundingBox.y + boundingBox.height; 
-            pt_tl = pt_tl.matrixTransform(matrix);
-            pt_br = pt_br.matrixTransform(matrix);
-
-            var targetObjHeight = pt_br.y - pt_tl.y;
-            var targetObjWidth  = pt_br.x - pt_tl.x;
-            var displayObjTop  = pt_tl.y;
-            var displayObjLeft = pt_tl.x;
-
-            // Clone and add display object to page.
-            var displayObjCopy = $(displayObj).clone();
-            $(GraphView.options.graphSel).append(displayObjCopy);
-            displayObjCopy.css('position', 'absolute');
-
-            // Calculate display object's new top and left values according to position setting.
-            if (position.toLowerCase() === 'top') {
-                displayObjTop -= displayObjCopy.outerHeight();
-                displayObjLeft += (targetObjWidth / 2) - (displayObjCopy.outerWidth() / 2);
-            }
-            else if (position.toLowerCase() === 'bottom') {
-                displayObjTop += targetObjHeight;
-                displayObjLeft += (targetObjWidth / 2) - (displayObjCopy.outerWidth() / 2);
-            }
-            else if (position.toLowerCase() === 'left') {
-                displayObjTop += (targetObjHeight / 2) - (displayObjCopy.outerHeight() / 2);
-                displayObjLeft -= displayObjCopy.outerWidth();
-            }
-            else if (position.toLowerCase() === 'right') {
-                displayObjTop += (targetObjHeight / 2) - (displayObjCopy.outerHeight() / 2);
-                displayObjLeft += targetObjWidth;
-            }
-            displayObjCopy.css({top:  displayObjTop  + 'px',
-                                left: displayObjLeft + 'px'}).show();
-
-            displayObjCopy.on('click', function(event) {
-                var startScopeId = $(this).attr('data-start-scopeId');
-                var startNodeId  = $('g.'+startScopeId+'-out').attr('data-start');
-                $(this).trigger('clickEdge.tossboss-graph-view', [startNodeId, '', startScopeId, '']);
-            });
-        });
-    },
-    /**
      * Add any additional data to graph SVG.
      */
     addDataToGraph: function() {
-        var s3StorageFunctions = ['PigStorage','AegisthusBagLoader','AegisthusMapLoader','PartitionedLoader','PartitionedStorer'];
-        var dumpStorageFunctions = ['TFileStorage','InnerStorage'];
         // Get Pig data.
         var pigData = GraphModel.getPigData();
-
         // Add line number to each node
         _.each(pigData, function(aliasInfo, id) {
             var lineNumber = -1;
@@ -438,100 +373,6 @@
             }
             $('g#'+id).data('line-number',lineNumber);
         });
-        
-        // Add data to each edge.
-        _.each($('g.edge'), function(element) {
-            // Get edge's start and end node objects.
-            var title = $(element).find('title').text().split('->');
-            var start = title[0];
-            var end   = title[1];
-            var startObj = pigData[start];
-            var endObj   = pigData[end];
-            // Get edge's start and end map-reduce scope ids.
-            var startScopeId = (startObj.mapReduce) ? startObj.mapReduce.jobId : '';
-            var endScopeId   = (endObj.mapReduce)   ? endObj.mapReduce.jobId   : '';
-            // Add edge's start node's operator to class
-            d3.select(element).classed(startObj.operator,true);
-            // If edge's start node is a beginning node (nothing points to it), add data.
-            if (startObj.predecessors.length == 0) {
-                d3.select(element).classed(startScopeId+'-in',true);
-                if (startObj.hasOwnProperty('storageLocation')) {
-                    var storageLocation = startObj.storageLocation.slice(-40);
-                    if (_.contains(s3StorageFunctions, startObj.storageFunction)) {
-                        storageLocation = storageLocation.split('/').reverse()[0].slice(-40);
-                    }
-                    $(element).attr('data-storagelocation-in',storageLocation);
-                }
-            }
-            // If edge's end node is an end node (nothing after it), add data.
-            if (endObj.successors.length == 0) {
-                d3.select(element).classed(startScopeId+'-out',true);
-                if (endObj.hasOwnProperty('storageLocation')) {
-                    var storageLocation = endObj.storageLocation.slice(-40);
-                    if (_.contains(s3StorageFunctions, endObj.storageFunction)) {
-                        storageLocation = storageLocation.split('/').reverse()[0].slice(-40);
-                    }
-                    $(element).attr('data-storagelocation-out',storageLocation);
-                    if (_.contains(dumpStorageFunctions, endObj.storageFunction)) {
-                        d3.select(element).classed('intermediate',true);
-                    }
-                }
-            }
-            // If edge crosses map-reduce jobs.
-            if (startScopeId != endScopeId) {
-                d3.select(element).classed('intermediate',true);
-                // If edge is output of a split, label only 1 edge
-                if ((startObj.operator !== 'LOSplit') || ($('.edge.'+startScopeId+'-out.'+startObj.operator).length === 0)) {
-                    d3.select(element).classed(startScopeId+'-out',true);
-                }
-            }
-            if (startObj.predecessors.length > 0 && endObj.successors.length > 0) {
-                d3.select(element).classed('intermediate',true);
-            }
-            GraphView.addEdgeTextElement(element);
-            $(element).attr('data-start',start);
-            $(element).attr('data-end',end);
-            $(element).attr('data-start-scopeId',startScopeId);
-            $(element).attr('data-end-scopeId',endScopeId);
-        });
-        // Bind events.
-        $('g.edge').on('click', function(event) {
-            $(this).trigger('clickEdge.tossboss-graph-view', [$(this).attr('data-start'), $(this).attr('data-end'), $(this).attr('data-start-scopeId'), $(this).attr('data-end-scopeId')]);
-        });
-    },
-    /**
-     * Display a record count on edges.
-     *
-     * @param {String} cls The element class for the edge
-     * @param {String} recordCount The record count to display
-     * @param {String} counterName If record count is part of a multi-counter, the counter name (optional)
-     */
-    displayRecordCount: function(cls, recordCount, counterName) {
-        if (counterName) {
-            var counterStorageLocation = counterName.split('_').slice(2).join('_');
-            // Loop through edges.
-            _.each($('g.edge.'+cls), function(edge) {
-                // Get storage location data for the edge.
-                edgeStorageLocationIn  = $(edge).attr('data-storagelocation-in');
-                edgeStorageLocationOut = $(edge).attr('data-storagelocation-out');
-                if (counterStorageLocation === edgeStorageLocationIn) {
-                    $(edge).children('text').text(GraphView.addCommas(recordCount)).attr('data-record-count', recordCount);
-                }
-                if (counterStorageLocation === edgeStorageLocationOut) {
-                    $(edge).children('text').text(GraphView.addCommas(recordCount)).attr('data-record-count', recordCount);
-                }
-            });
-        }
-        else {
-            $('g.edge.'+cls+' text').text(GraphView.addCommas(recordCount)).attr('data-record-count', recordCount);
-        }
-        // If "-out" edge and has record count, display sample-output-icon.
-        if (cls.match(/-out/g) && typeof(recordCount) === "number") {
-            var startScopeId = cls.replace('-out','');
-            GraphView.displayObject('<i class="icon-info-sign sample-output-icon intermediate '+cls+'" data-start-scopeId="'+startScopeId+'"></i>',
-                                    'g.edge.'+cls+'.intermediate text[data-record-count]',
-                                    'right');
-        }
     },
     /**
      * Draw run stats data on graph.
@@ -541,60 +382,17 @@
         var runStatsData = GraphModel.options.runStatsData;
         progress = runStatsData['progress'];
         isScriptSuccessful = true;
-        // Clear running class on clusters.
-        $('g.cluster[class*="running"]').attr('class','cluster');
-        // Get all running map-reduce jobs and loop through them.
-        runningJobs = _.filter(runStatsData.jobStatusMap, function(job) { return !job['isComplete'] && !job['isSuccessful']; });
-        _.each(runningJobs, function(jobStats, jobTrackerId) {
-            // Add running class to cluster element.
-            if (jobStats['mapProgress'] < 1.0) {
-                $('g#'+jobStats['scope']).attr('class','cluster running-map');
-            }
-            else if (jobStats['totalReducers'] > 0) {
-                $('g#'+jobStats['scope']).attr('class','cluster running-reduce');
-            }
-        });
         // Detect if script was successful.
         if (_.find(runStatsData['jobStatusMap'], function(job) { return job['isComplete'] && !job['isSuccessful']; })) {
             isScriptSuccessful = false;
         }
-        // Remove all sample-output-icons (they will get reapplied when record counts are updated).
-        $('.sample-output-icon').remove();
         // Loop through all map-reduce jobs.
         _.each(runStatsData.jobStatusMap, function(jobStats, jobTrackerId) {
-            var count_in = 0;
-            var count_out = 0;
             var scopeId = jobStats.scope;
             var jobId = jobStats.jobId;
             var mapProgress = Math.floor(parseFloat(jobStats.mapProgress) * 100);
             var reduceProgress = Math.floor(parseFloat(jobStats.reduceProgress) * 100);
             var progress = (jobStats.totalReducers>0) ? (mapProgress+reduceProgress)/2 : mapProgress;
-            // Display record counts.
-            if (jobStats.counters.hasOwnProperty('Map-Reduce Framework')) {
-                // Input counters.
-                if (jobStats.counters.hasOwnProperty('MultiInputCounters')) {
-                    _.each(jobStats.counters.MultiInputCounters.counters, function(count, counter) {
-                        GraphView.displayRecordCount(scopeId+'-in', count, counter);
-                    });
-                }
-                else {
-                    count_in = jobStats.counters['Map-Reduce Framework'].counters['Map input records'];
-                    GraphView.displayRecordCount(scopeId+'-in', count_in);
-                }
-                // Output counters.
-                if (jobStats.counters.hasOwnProperty('MultiStoreCounters')) {
-                    _.each(jobStats.counters.MultiStoreCounters.counters, function(count, counter) {
-                        GraphView.displayRecordCount(scopeId+'-out', count, counter);
-                    });
-                }
-                else {
-                    count_out = (jobStats.counters['Map-Reduce Framework'].counters.hasOwnProperty('Reduce output records')) ? jobStats.counters['Map-Reduce Framework'].counters['Reduce output records'] : '';
-                    if (jobStats.totalReducers === 0) {
-                        count_out = jobStats['counters']['Map-Reduce Framework']['counters']['Map output records'];
-                    }
-                    GraphView.displayRecordCount(scopeId+'-out', count_out);
-                }
-            }
             // Update jobId's progress bars.
             $('.'+jobId+' div.map').css('width',mapProgress+'%');
             $('.'+jobId+' div.map').html(mapProgress+'%');
@@ -735,36 +533,6 @@
         var html = _.template(Templates.jobWarningModalBodyTmpl, {'job_warnings': warnings}, {variable:'data'})
         modal.append(html);
     },
-
-    /**
-     * Adds a text element to the edge
-     *
-     * @param {Object} edge The edge element object
-     */
-    addEdgeTextElement: function(edge) {
-        // var edgeObj = $(edge);
-        // var edge    = edgeObj.get(0);
-        // // Get head and tail X,Y coordinates
-        // var headCoordinates = $(edge).find('polygon').attr('points').split(' ')[1].split(',');
-        // var tailCoordinates = $(edge).find('path').attr('d').replace('M','').split('C')[0].split(',');
-        // var headX = parseFloat(headCoordinates[0]);
-        // var headY = parseFloat(headCoordinates[1]);
-        // var tailX = parseFloat(tailCoordinates[0]);
-        // var tailY = parseFloat(tailCoordinates[1]);
-        // // Default text area's X,Y coordinates to display on right side of edge
-        // var x = tailX + 5;
-        // var y = tailY + 23;
-        // $(edge).attr('data-text-placement','right');
-        // //d3.select(edge).append('rect').attr('x',x).attr('y',y-12).attr('width','100').attr('height','15').attr('fill','white');
-        // d3.select(edge).append('text').attr('x',x).attr('y',y).attr('font-size','0.7em');
-        // // If arrow favors right, move text X,Y coordinates to left side of edge
-        // if (headX > tailX) {
-        //     x = tailX - 15;
-        //     y = tailY + 23;
-        //     $(edge).attr('data-text-placement','left');
-        //     d3.select(edge).select('text').attr('x',x).attr('y',y).attr('text-anchor','end');
-        // }
-    },
     /**
      * Changes background color of cluster for running map and reduce jobs.
      */
@@ -772,13 +540,6 @@
         $(GraphView.options.runningMapSel).transition({fill:'#E9E9E9', duration: 1000}).transition({fill:'#3299bb', duration: 500});
         $(GraphView.options.runningRedSel).transition({fill:'#E9E9E9', duration: 1000}).transition({fill:'#ff9900', duration: 500});
     },
-    /**
-     * Add commas to numbers.
-     * Example: addCommas('123123') -> '123,123'
-     *
-     * @param {String} nStr The number to add commas to
-     * @return {String} Returns the number with commas added
-     */
     addCommas: function(nStr) {
         nStr += '';
         x = nStr.split('.');

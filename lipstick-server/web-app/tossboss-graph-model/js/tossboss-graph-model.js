@@ -113,7 +113,7 @@
             GraphModel.options.svgUnoptimized = json.unoptimized.svg;
             GraphBuilder.buildGraph(json.unoptimized.plan, function(unoptimizedGraph, viewModel) {
               GraphModel.options.graphUnoptimized = unoptimizedGraph;
-              GraphModel.options.unoptimizedViewModel = viewModel;                                                                                
+              GraphModel.options.unoptimizedViewModel = viewModel;
             });
         });
     },
@@ -132,6 +132,7 @@
                 _.delay(GraphModel.getRunStats, 5000);
             }
             GraphModel.options.optimizedViewModel.update(json.status);
+            GraphModel.options.unoptimizedViewModel.update(json.status);
         }).fail(function() {
             _.delay(GraphModel.getRunStats, 5000);
         });

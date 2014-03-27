@@ -233,7 +233,43 @@
         self.outEdge = ko.observable(false);        
         self.scope = ko.observable('');
         
-        self.recordCount = ko.observable(''); // Edge value
+        self.edgeCss = ko.computed(function () {
+            return self.scope() + '-out';
+        });
+        
+        self.recordCount = ko.observable('').extend({notify: 'always'}); // Edge value
+        self.formattedRecordCount = ko.computed(function() {
+            return GraphView.addCommas(self.recordCount());
+        }).extend({notify: 'always'});
+
+        
+        //
+        // When the recordCount is updated we need to expand
+        // the text box
+        //
+        self.formattedRecordCount.subscribe(function (newValue) {            
+            var width;
+            var edgeLabel = d3.select('.foreign-html.edge-'+self.id().replace('>',''));
+            
+            var count = edgeLabel.select('div.edge-record-count');
+            var icon = edgeLabel.select('i');
+
+            if (count.node()) {
+                var oldWidth = count.node().clientWidth+icon.node().clientWidth;
+                var oldX = parseFloat(edgeLabel.attr('x') ? edgeLabel.attr('x') : 0);
+                count.html(newValue);
+                var newWidth = count.node().clientWidth+icon.node().clientWidth;
+                var newX = (oldWidth - newWidth)/2.0 + oldX;
+
+                edgeLabel.attr('width', newWidth);
+                edgeLabel.attr('x', newX);
+            }
+         });
+
+        self.displayExamples = function (data, event) {
+            $(event.currentTarget).trigger('clickEdge.tossboss-graph-view', [self.u(), '', self.scope(), '']);
+        };
+        
         self.label = ko.computed(function() {
             return "<div class=\"edge-html\" data-bind=\"template: {name: \'edge-template\', data: edges['"+self.id()+"']}\"></div>";
         });
@@ -289,14 +325,14 @@
             
                 var subGraph = self.subGraphs[jid];
                 if (!subGraph.hasNode(node.uid())) {
-                    subGraph.addNode(node.uid(), {label: node.label()});
+                    subGraph.addNode(node.uid(), {label: node.label(), type: 'node', id: node.uid()});
                 }
             }
                                   
             if (!self.graph.hasNode(node.uid())) {
-                self.graph.addNode(node.uid(), {label: node.label()});               
+                self.graph.addNode(node.uid(), {label: node.label(), type: 'node', id: node.uid()});               
             } else {
-                self.graph.node(node.uid(), {label: node.label()});
+                self.graph.node(node.uid(), {label: node.label(), type: 'node', id: node.uid()});
             }
             self.nodes[node.uid()] = node;
         };                               
@@ -344,7 +380,7 @@
             }
 
             if (!self.graph.hasEdge(edge.id())) {
-                self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label()});
+                self.graph.addEdge(edge.id(), edge.u(), edge.v(), {label: edge.label(), type: 'edge', id: edge.id()});
             }
             edge.scope(source.mapReduce().jobId());
             self.edges[edge.id()] = edge;
@@ -374,7 +410,7 @@
          
         self.edge = function(edgeId, edge) {
             if (edge) {
-                self.graph.edge(edgeId, {label: edge.label()});
+                self.graph.edge(edgeId, {label: edge.label(), type: 'edge', id: edgeId});
             } else {
                 return self.edges[edgeId];
             }
@@ -382,7 +418,7 @@
  
         self.node = function(nodeId, node) {
             if (node) {
-                return self.graph.node(nodeId, {label: node.label()});
+                return self.graph.node(nodeId, {label: node.label(), type: 'node', id: nodeId});
             } else {
                 return self.nodes[nodeId];
             }
@@ -404,13 +440,15 @@
                 var running = (!job['isComplete'] && !job['isSuccessful']);                
                 // Update clusters, nodes, edges here with runtime data
 
-                self.clusters[clusterId].running(running);
-                
-                if (job['mapProgress'] < 1.0) {
-                    self.clusters[clusterId].runType('running-map');    
-                } else if (job['totalReducers'] > 0) {
-                    self.clusters[clusterId].runType('running-reduce');    
-                }
+                var cluster = self.clusters[clusterId];
+                if (cluster) {
+                    cluster.running(running);
+                    if (job['mapProgress'] < 1.0) {
+                        cluster.runType('running-map');    
+                    } else if (job['totalReducers'] > 0) {
+                        cluster.runType('running-reduce');    
+                    }
+                }                                
 
                 if (job.counters.hasOwnProperty('Map-Reduce Framework')) {
 

@@ -1,9 +1,10 @@
 ;GraphRenderer = {    
     addLabel: function(node, root, viewModel) {
         var labelSvg = root.append('g');
-        
         var fo = labelSvg
             .append('foreignObject')
+            .classed('foreign-html', true)
+            .classed(node.type+'-'+node.id.replace('>',''), true) 
             .attr('width', '100000');
 
         var w, h;
@@ -58,12 +59,18 @@
         });
 
         renderer.drawEdgePaths(function (graph, root) {
-          var edgePaths = oldDrawEdges(graph, root);
-          edgePaths.attr('id', function(edge, idx) { return "edge"+idx; });
-          edgePaths.classed('edge', true);
-          edgePaths.append('title').text(function(edge) { return edge;});
+            var edgePaths = oldDrawEdges(graph, root);
+            edgePaths.attr('id', function(edge, idx) { return "edge"+idx; });
+            edgePaths.attr('data-start', function(edge, idx) {
+                return edge.split('->')[0];
+            });
+            edgePaths.attr('data-end', function(edge, idx) {
+                return edge.split('->')[1];
+            });
+            edgePaths.classed('edge', true);
+            edgePaths.append('title').text(function(edge) { return edge;});
 
-          return edgePaths;                                   
+            return edgePaths;                                   
         });
 
         renderer.drawEdgeLabels(function (graph, root) {
