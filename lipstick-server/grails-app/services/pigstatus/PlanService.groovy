@@ -20,7 +20,6 @@ import com.netflix.lipstick.model.P2jPlanPackage;
 import com.netflix.lipstick.model.P2jPlanStatus;
 import com.netflix.lipstick.model.P2jSampleOutput;
 import com.netflix.lipstick.model.P2jSampleOutputList;
-import com.netflix.lipstick.Pig2DotGenerator;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.hibernate.criterion.CriteriaSpecification
 
@@ -30,10 +29,6 @@ class PlanService {
     def save(params, jsonString) {
         def ser = om.readValue(jsonString, P2jPlanPackage.class)
         def uuid = ser.uuid
-        def svg = new Pig2DotGenerator(ser.optimized).generatePlan("svg")
-        ser.optimized.setSvg(svg)
-        svg = new Pig2DotGenerator(ser.unoptimized).generatePlan("svg")
-        ser.unoptimized.setSvg(svg)
         if (ser.save(flush:true)) {
             return  [
                 uuid: uuid,

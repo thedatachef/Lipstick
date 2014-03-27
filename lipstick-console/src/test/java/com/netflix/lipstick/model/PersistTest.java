@@ -179,7 +179,6 @@ public class PersistTest {
     private P2jPlan getP2jPlan() {
         P2jPlan plan = new P2jPlan();
         plan.setPlan(new HashMap<String, P2jLogicalRelationalOperator>());
-        plan.setSvg("someSvg");
         return plan;
     }
 

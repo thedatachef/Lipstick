@@ -37,7 +37,6 @@ public class P2jPlan {
 
     private long id;
     private Map<String, P2jLogicalRelationalOperator> plan = null;
-    private String svg = null;
 
     /**
      * Construct an empty P2jPlan object.
@@ -52,19 +51,7 @@ public class P2jPlan {
     public P2jPlan(Map<String, P2jLogicalRelationalOperator> plan) {
         super();
         setPlan(plan);
-    }
-
-    /**
-     * Construct a new P2jPlan object and set both the plan and svg representation of the plan.
-     *
-     * @param plan
-     * @param svg
-     */
-    public P2jPlan(Map<String, P2jLogicalRelationalOperator> plan, String svg) {
-        super();
-        setPlan(plan);
-        setSvg(svg);
-    }
+    }    
 
     @Id
     @GeneratedValue
@@ -80,17 +67,7 @@ public class P2jPlan {
     @OneToMany(cascade = CascadeType.ALL)
     public Map<String, P2jLogicalRelationalOperator> getPlan() {
         return plan;
-    }
-
-    /**
-     * Get the graphical representation of the plan in svg format.
-     *
-     * @return a string containing the svg representation of the logical plan
-     */
-    @Lob
-    public String getSvg() {
-        return svg;
-    }
+    }    
 
     public void setId(long id) {
         this.id = id;
@@ -98,9 +75,5 @@ public class P2jPlan {
 
     public void setPlan(Map<String, P2jLogicalRelationalOperator> plan) {
         this.plan = plan;
-    }
-
-    public void setSvg(String svg) {
-        this.svg = svg;
-    }
+    }    
 }

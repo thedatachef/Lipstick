@@ -1161,7 +1161,6 @@
 			"storageFunction":"PigStorage"
 		}
 	},
-	"svg":null,
 	"id":null
 },
 "unoptimized":{
@@ -1866,7 +1865,6 @@
 			"rowLimit":10
 		}
 	},
-	"svg":null,
 	"id":null
 }
 }
