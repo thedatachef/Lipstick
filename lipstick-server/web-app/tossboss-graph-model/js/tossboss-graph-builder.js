@@ -254,7 +254,7 @@
             var count = edgeLabel.select('div.edge-record-count');
             var icon = edgeLabel.select('i');
 
-            if (count.node()) {
+            if (count.node() && newValue) {
                 var oldWidth = count.node().clientWidth+icon.node().clientWidth;
                 var oldX = parseFloat(edgeLabel.attr('x') ? edgeLabel.attr('x') : 0);
                 count.html(newValue);
@@ -466,7 +466,7 @@
                     else {
                         count_in = job.counters['Map-Reduce Framework'].counters['Map input records'];
                         for (var edgeId in self.edges) {                            
-                            var edge = self.edges[edgeId];
+                            var edge = self.edges[edgeId];                            
                             if (edge.inEdge() && edge.scope() === clusterId) {
                                 edge.recordCount(count_in);
                             }
@@ -492,7 +492,7 @@
                         }
                         for (var edgeId in self.edges) {                            
                             var edge = self.edges[edgeId];                            
-                            if (edge.boundaryEdge() || edge.outEdge() && edge.scope() === clusterId) {
+                            if ((edge.boundaryEdge() || edge.outEdge()) && edge.scope() === clusterId) {
                                 edge.recordCount(count_out);
                             }
                         }
