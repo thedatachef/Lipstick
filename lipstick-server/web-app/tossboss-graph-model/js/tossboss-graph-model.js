@@ -33,9 +33,7 @@
         uuid: undefined,
         allData: undefined,
         pigUnoptimizedData: undefined,
-        svgUnoptimized: undefined,
         pigOptimizedData: undefined,
-        svgOptimized: undefined,
         graphUnoptimized: undefined,
         graphOptimized: undefined,
         optimizedViewModel: undefined,
@@ -49,32 +47,30 @@
     startListeners: function() {
         // On edge click, get sample data and toggle modal.
         $(document).on('clickEdge.tossboss-graph-view', function(event, startNodeId, endNodeId, startScopeId, endScopeId) {
-            if (_.contains(event.target.classList, startScopeId+'-out') && _.contains(event.target.classList, 'intermediate')) {
-                Modal.displayModal({title:'Sample Data'});
-                // Check to see if sample data is cached.
-                if (! GraphModel.options.sampleOutputsData[startScopeId]) {
-                    // Get sample data.
-                    $.ajax({
-                        type: 'GET',
-                        url:  GraphModel.options.baseUrl + GraphModel.options.uuid +'?sampleOutput=1',
-                    }).done(function(json) {
-                        // If there is sample data, cache and populate.
-                        if (! $.isEmptyObject(json.sampleOutputMap)) {
-                            GraphModel.options.sampleOutputsData = json.sampleOutputMap;
-                            if (GraphModel.options.sampleOutputsData[startScopeId]) {
-                                GraphModel.populateSampleOutputData(startNodeId, startScopeId);
-                                return;
-                            }
+            Modal.displayModal({title:'Sample Data'});
+            // Check to see if sample data is cached.
+            if (! GraphModel.options.sampleOutputsData[startScopeId]) {
+                // Get sample data.
+                $.ajax({
+                    type: 'GET',
+                    url:  GraphModel.options.baseUrl + GraphModel.options.uuid +'?sampleOutput=1',
+                }).done(function(json) {
+                    // If there is sample data, cache and populate.
+                    if (! $.isEmptyObject(json.sampleOutputMap)) {
+                        GraphModel.options.sampleOutputsData = json.sampleOutputMap;
+                        if (GraphModel.options.sampleOutputsData[startScopeId]) {
+                            GraphModel.populateSampleOutputData(startNodeId, startScopeId);
+                            return;
                         }
-                        // No sample data.
-                        var html = _.template(Templates.sampleOutputDataTmpl, {}, {variable:'data'});
-                        $('#myModal .modal-body').html(html);
-                    }).fail(function() {
-                    });
-                }
-                else {
-                    GraphModel.populateSampleOutputData(startNodeId, startScopeId);
-                }
+                    }
+                    // No sample data.
+                    var html = _.template(Templates.sampleOutputDataTmpl, {}, {variable:'data'});
+                    $('#myModal .modal-body').html(html);
+                }).fail(function() {
+                });
+            }
+            else {
+                GraphModel.populateSampleOutputData(startNodeId, startScopeId);
             }
         });
     },
@@ -94,7 +90,6 @@
             GraphModel.options.allData = json;
             GraphModel.options.runStatsData = json.status;
             GraphModel.options.pigOptimizedData = json.optimized.plan;
-            GraphModel.options.svgOptimized = json.optimized.svg;
             GraphBuilder.buildGraph(json.optimized.plan, function(optimizedGraph, viewModel) {
               GraphModel.options.graphOptimized = optimizedGraph;
               GraphModel.options.optimizedViewModel = viewModel;
@@ -110,7 +105,6 @@
             url:  GraphModel.options.baseUrl + uuid + '?unoptimized=1'
         }).done(function(json) {
             GraphModel.options.pigUnoptimizedData = json.unoptimized.plan;
-            GraphModel.options.svgUnoptimized = json.unoptimized.svg;
             GraphBuilder.buildGraph(json.unoptimized.plan, function(unoptimizedGraph, viewModel) {
               GraphModel.options.graphUnoptimized = unoptimizedGraph;
               GraphModel.options.unoptimizedViewModel = viewModel;
@@ -161,17 +155,6 @@
       result.graph = GraphModel.options.graphUnoptimized;
       result.viewModel = GraphModel.options.unoptimizedViewModel;
       return result;
-    },
-    /**
-     * Return the SVG markup for the active graph type (optimized or unoptimized).
-     *
-     * @return {String} Returns SVG markup
-     */
-    getSvgData: function() {
-        if (GraphModel.options.graphType.toLowerCase() === 'optimized') {
-            return GraphModel.options.svgOptimized;
-        }
-        return GraphModel.options.svgUnoptimized;
     },
     /**
      * Populate the sample output data modal with sample data.
