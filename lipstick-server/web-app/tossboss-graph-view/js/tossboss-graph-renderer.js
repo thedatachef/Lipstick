@@ -14,8 +14,7 @@
             .style('float', 'left')
             .html(function() { return node.label; })
             .each(function() {               
-               // Apply bindings here so html is rendered and the bbox 
-               // can be computed
+               // So dimensions can be computed
                ko.applyBindings(viewModel, d3.select(this).node());
                w = this.clientWidth;
                h = this.clientHeight;
@@ -135,11 +134,7 @@
                     .attr('x', bbox.x-margin/2)
                     .attr('y', bbox.y-margin/2)
                     .attr('width', bbox.width+margin)
-                    .attr('height', bbox.height+margin)
-                    .attr('fill', '#e9e9e9')
-                    .attr('stroke', 'black')
-                    .attr('stroke-width', '1.5px')
-                    .style('opacity', 0.6);
+                    .attr('height', bbox.height+margin);
         
             });
                                 
@@ -156,16 +151,26 @@
             
             oldPostRender(graph, root);            
         });
+
+        var pigGraph = d3.select('#pig-graph');
+        pigGraph.selectAll('*').remove();
         
-        var svg = d3.select('#pig-graph').append('svg').append('g');                
+        var svg = pigGraph.append('svg');
         renderer.edgeInterpolate('linear');
-        renderer.run(g, svg);
+        renderer.run(g, svg.append('g'));
 
-        var bbox = d3.select('svg').node().getBBox();
-        var viewHeight = bbox.height*2+"pt";
-        var viewWidth = bbox.width*2+"pt";
-        var result = "<svg height=\""+viewHeight+"\" width=\""+viewWidth+"\">"+svg.html()+"</svg>";
+        var bbox = svg.node().getBBox();
+        
+        svg
+            .attr('width', bbox.width+0.1*bbox.width)
+            .attr('height', bbox.height+0.1*bbox.height)
+            
+        svg.select('g').attr('transform', 'translate('+0+','+0.01*bbox.height+')');
 
-        callback(result, renderer);
+        // Hack for knockout bindings to work; expensive?
+        var result = pigGraph.html();
+        pigGraph.html(result);                
+        
+        ko.applyBindings(graphData.viewModel, pigGraph.node());
     }
 };
