@@ -184,11 +184,7 @@
         // Draw with dagre
         //
         var graphData = GraphModel.getGraph();        
-        GraphRenderer.renderGraph(graphData, function(svgData, renderer) {
-          $(GraphView.options.graphSel).empty();                     
-          $(GraphView.options.graphSel).html(svgData);
-          ko.applyBindings(graphData.viewModel, $('svg')[0]);
-        });
+        GraphRenderer.renderGraph(graphData);
         
         // Restore to previous zoom state if it exists
         if(GraphView.options.graphState[lowerType]) {

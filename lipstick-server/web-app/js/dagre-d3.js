@@ -1,5 +1,6 @@
-;(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var global=self;/**
+(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);throw new Error("Cannot find module '"+o+"'")}var f=n[o]={exports:{}};t[o][0].call(f.exports,function(e){var n=t[o][1][e];return s(n?n:e)},f,f.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+(function (global){
+/**
  * @license
  * Copyright (c) 2012-2013 Chris Pettitt
  *
@@ -23,6 +24,7 @@ var global=self;/**
  */
 global.dagreD3 = require('./index');
 
+}).call(this,typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"./index":2}],2:[function(require,module,exports){
 /**
  * @license
@@ -54,7 +56,7 @@ module.exports =  {
   version: require('./lib/version')
 };
 
-},{"./lib/Renderer":3,"./lib/version":4,"dagre":11,"graphlib":28}],3:[function(require,module,exports){
+},{"./lib/Renderer":3,"./lib/version":4,"dagre":5,"graphlib":59}],3:[function(require,module,exports){
 var layout = require('dagre').layout;
 
 var d3;
@@ -302,7 +304,7 @@ var defaultDrawEdgePaths = function(g, root) {
   return svgEdgePaths;
 };
 
-function defaultPositionNodes(g, svgNodes, svgNodesEnter) {
+function defaultPositionNodes(g, svgNodes) {
   function transform(u) {
     var value = g.node(u);
     return 'translate(' + value.x + ',' + value.y + ')';
@@ -359,26 +361,9 @@ function defaultPositionEdgePaths(g, svgEdgePaths) {
   svgEdgePaths.filter('.enter').selectAll('path')
       .attr('d', calcPoints);
 
-  this._transition(svgEdgePaths.filter('.enter').selectAll('path'))
+  this._transition(svgEdgePaths.selectAll('path'))
+      .attr('d', calcPoints)
       .style('opacity', 1);
-
-  // When initiating a transition with 1 more control point than previously
-  // present, the transition immediately sets the terminal control point to the
-  // final position. This hack inserts an artificial control point. It's not
-  // pretty, but better than the previous behavior.
-  svgEdgePaths.selectAll('path')
-      .filter(function(e) {
-        var points = g.edge(e).points;
-        return d3.select(this).attr('d').split('C').length - 2 < points.length;
-      })
-      .attr('d', function(e) {
-        var dSplit = d3.select(this).attr('d').split('C');
-        dSplit.splice(1, 0, dSplit[1]);
-        return dSplit.join('C');
-      });
-
-  this._transition(svgEdgePaths.filter(':not(.enter)').selectAll('path'))
-      .attr('d', calcPoints);
 }
 
 // By default we do not use transitions
@@ -462,17 +447,17 @@ function addForeignObjectLabel(label, root) {
 }
 
 function addTextLabel(label, root, labelCols, labelCut) {
-  if (labelCut === undefined) labelCut = "false";
-  labelCut = (labelCut.toString().toLowerCase() === "true");
+  if (labelCut === undefined) labelCut = 'false';
+  labelCut = (labelCut.toString().toLowerCase() === 'true');
 
   var node = root
     .append('text')
     .attr('text-anchor', 'left');
 
-  label = label.replace(/\\n/g, "\n");
+  label = label.replace(/\\n/g, '\n');
 
   var arr = labelCols ? wordwrap(label, labelCols, labelCut) : label;
-  arr = arr.split("\n");
+  arr = arr.split('\n');
   for (var i = 0; i < arr.length; i++) {
     node
       .append('tspan')
@@ -493,7 +478,7 @@ function wordwrap (str, width, cut, brk) {
 
      var regex = '.{1,' +width+ '}(\\s|$)' + (cut ? '|.{' +width+ '}|.+$' : '|\\S+?(\\s|$)');
 
-     return str.match( RegExp(regex, 'g') ).join( brk );
+     return str.match( new RegExp(regex, 'g') ).join( brk );
 }
 
 function findMidPoint(points) {
@@ -556,371 +541,10 @@ function bind(func, thisArg) {
   };
 }
 
-},{"d3":10,"dagre":11}],4:[function(require,module,exports){
-module.exports = '0.1.4';
+},{"d3":"eXt6gd","dagre":5}],4:[function(require,module,exports){
+module.exports = '0.1.6-pre';
 
 },{}],5:[function(require,module,exports){
-exports.Set = require('./lib/Set');
-exports.PriorityQueue = require('./lib/PriorityQueue');
-exports.version = require('./lib/version');
-
-},{"./lib/PriorityQueue":6,"./lib/Set":7,"./lib/version":9}],6:[function(require,module,exports){
-module.exports = PriorityQueue;
-
-/**
- * A min-priority queue data structure. This algorithm is derived from Cormen,
- * et al., "Introduction to Algorithms". The basic idea of a min-priority
- * queue is that you can efficiently (in O(1) time) get the smallest key in
- * the queue. Adding and removing elements takes O(log n) time. A key can
- * have its priority decreased in O(log n) time.
- */
-function PriorityQueue() {
-  this._arr = [];
-  this._keyIndices = {};
-}
-
-/**
- * Returns the number of elements in the queue. Takes `O(1)` time.
- */
-PriorityQueue.prototype.size = function() {
-  return this._arr.length;
-};
-
-/**
- * Returns the keys that are in the queue. Takes `O(n)` time.
- */
-PriorityQueue.prototype.keys = function() {
-  return this._arr.map(function(x) { return x.key; });
-};
-
-/**
- * Returns `true` if **key** is in the queue and `false` if not.
- */
-PriorityQueue.prototype.has = function(key) {
-  return key in this._keyIndices;
-};
-
-/**
- * Returns the priority for **key**. If **key** is not present in the queue
- * then this function returns `undefined`. Takes `O(1)` time.
- *
- * @param {Object} key
- */
-PriorityQueue.prototype.priority = function(key) {
-  var index = this._keyIndices[key];
-  if (index !== undefined) {
-    return this._arr[index].priority;
-  }
-};
-
-/**
- * Returns the key for the minimum element in this queue. If the queue is
- * empty this function throws an Error. Takes `O(1)` time.
- */
-PriorityQueue.prototype.min = function() {
-  if (this.size() === 0) {
-    throw new Error("Queue underflow");
-  }
-  return this._arr[0].key;
-};
-
-/**
- * Inserts a new key into the priority queue. If the key already exists in
- * the queue this function returns `false`; otherwise it will return `true`.
- * Takes `O(n)` time.
- *
- * @param {Object} key the key to add
- * @param {Number} priority the initial priority for the key
- */
-PriorityQueue.prototype.add = function(key, priority) {
-  var keyIndices = this._keyIndices;
-  if (!(key in keyIndices)) {
-    var arr = this._arr;
-    var index = arr.length;
-    keyIndices[key] = index;
-    arr.push({key: key, priority: priority});
-    this._decrease(index);
-    return true;
-  }
-  return false;
-};
-
-/**
- * Removes and returns the smallest key in the queue. Takes `O(log n)` time.
- */
-PriorityQueue.prototype.removeMin = function() {
-  this._swap(0, this._arr.length - 1);
-  var min = this._arr.pop();
-  delete this._keyIndices[min.key];
-  this._heapify(0);
-  return min.key;
-};
-
-/**
- * Decreases the priority for **key** to **priority**. If the new priority is
- * greater than the previous priority, this function will throw an Error.
- *
- * @param {Object} key the key for which to raise priority
- * @param {Number} priority the new priority for the key
- */
-PriorityQueue.prototype.decrease = function(key, priority) {
-  var index = this._keyIndices[key];
-  if (priority > this._arr[index].priority) {
-    throw new Error("New priority is greater than current priority. " +
-        "Key: " + key + " Old: " + this._arr[index].priority + " New: " + priority);
-  }
-  this._arr[index].priority = priority;
-  this._decrease(index);
-};
-
-PriorityQueue.prototype._heapify = function(i) {
-  var arr = this._arr;
-  var l = 2 * i,
-      r = l + 1,
-      largest = i;
-  if (l < arr.length) {
-    largest = arr[l].priority < arr[largest].priority ? l : largest;
-    if (r < arr.length) {
-      largest = arr[r].priority < arr[largest].priority ? r : largest;
-    }
-    if (largest !== i) {
-      this._swap(i, largest);
-      this._heapify(largest);
-    }
-  }
-};
-
-PriorityQueue.prototype._decrease = function(index) {
-  var arr = this._arr;
-  var priority = arr[index].priority;
-  var parent;
-  while (index !== 0) {
-    parent = index >> 1;
-    if (arr[parent].priority < priority) {
-      break;
-    }
-    this._swap(index, parent);
-    index = parent;
-  }
-};
-
-PriorityQueue.prototype._swap = function(i, j) {
-  var arr = this._arr;
-  var keyIndices = this._keyIndices;
-  var origArrI = arr[i];
-  var origArrJ = arr[j];
-  arr[i] = origArrJ;
-  arr[j] = origArrI;
-  keyIndices[origArrJ.key] = i;
-  keyIndices[origArrI.key] = j;
-};
-
-},{}],7:[function(require,module,exports){
-var util = require('./util');
-
-module.exports = Set;
-
-/**
- * Constructs a new Set with an optional set of `initialKeys`.
- *
- * It is important to note that keys are coerced to String for most purposes
- * with this object, similar to the behavior of JavaScript's Object. For
- * example, the following will add only one key:
- *
- *     var s = new Set();
- *     s.add(1);
- *     s.add("1");
- *
- * However, the type of the key is preserved internally so that `keys` returns
- * the original key set uncoerced. For the above example, `keys` would return
- * `[1]`.
- */
-function Set(initialKeys) {
-  this._size = 0;
-  this._keys = {};
-
-  if (initialKeys) {
-    for (var i = 0, il = initialKeys.length; i < il; ++i) {
-      this.add(initialKeys[i]);
-    }
-  }
-}
-
-/**
- * Returns a new Set that represents the set intersection of the array of given
- * sets.
- */
-Set.intersect = function(sets) {
-  if (sets.length === 0) {
-    return new Set();
-  }
-
-  var result = new Set(!util.isArray(sets[0]) ? sets[0].keys() : sets[0]);
-  for (var i = 1, il = sets.length; i < il; ++i) {
-    var resultKeys = result.keys(),
-        other = !util.isArray(sets[i]) ? sets[i] : new Set(sets[i]);
-    for (var j = 0, jl = resultKeys.length; j < jl; ++j) {
-      var key = resultKeys[j];
-      if (!other.has(key)) {
-        result.remove(key);
-      }
-    }
-  }
-
-  return result;
-};
-
-/**
- * Returns a new Set that represents the set union of the array of given sets.
- */
-Set.union = function(sets) {
-  var totalElems = util.reduce(sets, function(lhs, rhs) {
-    return lhs + (rhs.size ? rhs.size() : rhs.length);
-  }, 0);
-  var arr = new Array(totalElems);
-
-  var k = 0;
-  for (var i = 0, il = sets.length; i < il; ++i) {
-    var cur = sets[i],
-        keys = !util.isArray(cur) ? cur.keys() : cur;
-    for (var j = 0, jl = keys.length; j < jl; ++j) {
-      arr[k++] = keys[j];
-    }
-  }
-
-  return new Set(arr);
-};
-
-/**
- * Returns the size of this set in `O(1)` time.
- */
-Set.prototype.size = function() {
-  return this._size;
-};
-
-/**
- * Returns the keys in this set. Takes `O(n)` time.
- */
-Set.prototype.keys = function() {
-  return values(this._keys);
-};
-
-/**
- * Tests if a key is present in this Set. Returns `true` if it is and `false`
- * if not. Takes `O(1)` time.
- */
-Set.prototype.has = function(key) {
-  return key in this._keys;
-};
-
-/**
- * Adds a new key to this Set if it is not already present. Returns `true` if
- * the key was added and `false` if it was already present. Takes `O(1)` time.
- */
-Set.prototype.add = function(key) {
-  if (!(key in this._keys)) {
-    this._keys[key] = key;
-    ++this._size;
-    return true;
-  }
-  return false;
-};
-
-/**
- * Removes a key from this Set. If the key was removed this function returns
- * `true`. If not, it returns `false`. Takes `O(1)` time.
- */
-Set.prototype.remove = function(key) {
-  if (key in this._keys) {
-    delete this._keys[key];
-    --this._size;
-    return true;
-  }
-  return false;
-};
-
-/*
- * Returns an array of all values for properties of **o**.
- */
-function values(o) {
-  var ks = Object.keys(o),
-      len = ks.length,
-      result = new Array(len),
-      i;
-  for (i = 0; i < len; ++i) {
-    result[i] = o[ks[i]];
-  }
-  return result;
-}
-
-},{"./util":8}],8:[function(require,module,exports){
-/*
- * This polyfill comes from
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
- */
-if(!Array.isArray) {
-  exports.isArray = function (vArg) {
-    return Object.prototype.toString.call(vArg) === '[object Array]';
-  };
-} else {
-  exports.isArray = Array.isArray;
-}
-
-/*
- * Slightly adapted polyfill from
- * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce
- */
-if ('function' !== typeof Array.prototype.reduce) {
-  exports.reduce = function(array, callback, opt_initialValue) {
-    'use strict';
-    if (null === array || 'undefined' === typeof array) {
-      // At the moment all modern browsers, that support strict mode, have
-      // native implementation of Array.prototype.reduce. For instance, IE8
-      // does not support strict mode, so this check is actually useless.
-      throw new TypeError(
-          'Array.prototype.reduce called on null or undefined');
-    }
-    if ('function' !== typeof callback) {
-      throw new TypeError(callback + ' is not a function');
-    }
-    var index, value,
-        length = array.length >>> 0,
-        isValueSet = false;
-    if (1 < arguments.length) {
-      value = opt_initialValue;
-      isValueSet = true;
-    }
-    for (index = 0; length > index; ++index) {
-      if (array.hasOwnProperty(index)) {
-        if (isValueSet) {
-          value = callback(value, array[index], index, array);
-        }
-        else {
-          value = array[index];
-          isValueSet = true;
-        }
-      }
-    }
-    if (!isValueSet) {
-      throw new TypeError('Reduce of empty array with no initial value');
-    }
-    return value;
-  };
-} else {
-  exports.reduce = function(array, callback, opt_initialValue) {
-    return array.reduce(callback, opt_initialValue);
-  };
-}
-
-},{}],9:[function(require,module,exports){
-module.exports = '1.1.3';
-
-},{}],10:[function(require,module,exports){
-require("./d3");
-module.exports = d3;
-(function () { delete this.d3; })(); // unset global
-
-},{}],11:[function(require,module,exports){
 /*
 Copyright (c) 2012-2013 Chris Pettitt
 
@@ -946,11 +570,196 @@ exports.Digraph = require("graphlib").Digraph;
 exports.Graph = require("graphlib").Graph;
 exports.layout = require("./lib/layout");
 exports.version = require("./lib/version");
+exports.debug = require("./lib/debug");
 
-},{"./lib/layout":12,"./lib/version":27,"graphlib":28}],12:[function(require,module,exports){
+},{"./lib/debug":7,"./lib/layout":8,"./lib/version":25,"graphlib":31}],6:[function(require,module,exports){
+var Digraph = require('graphlib').Digraph;
+
+module.exports = addBorderSegments;
+
+/*
+ * Given a ranked graph this function will add left and right border segements
+ * for each cluster such that a rectangular border can later replace border
+ * segment nodes. For each cluster we start inserting border segment nodes at
+ * the first rank containing a node in the cluster and we continue until we
+ * reach the last rank containing a node in the cluster. We construct a
+ * constraint graph to ensure that the left border segment remains to the left
+ * of all cluster nodes during ordering and we do the same for the right border
+ * segments.
+ *
+ * For a more detailed description of the function of this algorithm, please
+ * see Sander, "Layout of Compound Directed Graphs", Section 7.
+ */
+function addBorderSegments(g) {
+  var cg = new Digraph();
+
+  function addConstraints(left, vs, right) {
+    cg.addNode(left);
+    cg.addNode(right);
+    cg.addEdge(null, left, right);
+    if (vs) {
+      vs.forEach(function(v) {
+        cg.addNode(v);
+        cg.addEdge(null, left, v);
+        cg.addEdge(null, v, right);
+      });
+    }
+  }
+
+  g.eachNode(function(u, value) {
+    var children = g.children(u);
+    if (children.length) {
+      // First pass, find min, max rank for cluster and capture the rank of
+      // each node so that we can updated the constraint graph.
+      var min = Number.MAX_VALUE,
+          max = Number.MIN_VALUE,
+          rankMap = {},
+          i,
+          prevLeftSeg,
+          leftSeg,
+          prevRightSeg,
+          rightSeg;
+
+      children.forEach(function(v) {
+        var rank = g.node(v).rank,
+            rankEntry = rankMap[rank];
+        min = Math.min(min, rank);
+        max = Math.max(max, rank);
+        if (!rankEntry) {
+          rankEntry = rankMap[rank] = [];
+        }
+        rankEntry.push(v);
+      });
+
+      // Second pass, add left and right border segments from the min rank to
+      // the max rank and update the constraint graph.
+      value.leftBorderSegments = [];
+      value.rightBorderSegments = [];
+
+      for (i = min; i <= max; ++i) {
+        leftSeg = g.addNode(null, { rank: i, width: 0, height: 0, leftBorderSegment: true, dummy: true });
+        rightSeg = g.addNode(null, { rank: i, width: 0, height: 0, rightBorderSegment: true, dummy: true });
+
+        g.parent(leftSeg, u);
+        g.parent(rightSeg, u);
+
+        if (prevLeftSeg !== undefined) {
+          g.addEdge(null, prevLeftSeg, leftSeg, {});
+          g.addEdge(null, prevRightSeg, rightSeg, {});
+        }
+
+        value.leftBorderSegments.push(leftSeg);
+        value.rightBorderSegments.push(rightSeg);
+        addConstraints(leftSeg, rankMap[i], rightSeg);
+
+        prevLeftSeg = leftSeg;
+        prevRightSeg = rightSeg;
+      }
+    }
+  });
+
+  return cg;
+}
+
+},{"graphlib":31}],7:[function(require,module,exports){
+var util = require('./util');
+
+/**
+ * Renders a graph in a stringified DOT format that indicates the ordering of
+ * nodes by layer. Circles represent normal nodes. Diamons represent dummy
+ * nodes. While we try to put nodes in clusters, it appears that graphviz
+ * does not respect this because we're later using subgraphs for ordering nodes
+ * in each layer.
+ */
+exports.dotOrdering = function(g) {
+  var ordering = util.ordering(g.filterNodes(util.filterNonSubgraphs(g)));
+  var result = 'digraph {';
+
+  function dfs(u) {
+    var children = g.children(u);
+    if (children.length) {
+      result += 'subgraph cluster_' + u + ' {';
+      result += 'label="' + u + '";';
+      children.forEach(function(v) {
+        dfs(v);
+      });
+      result += '}';
+    } else {
+      result += u;
+      if (g.node(u).dummySegment) {
+        result += ' [shape=diamond]';
+      } else if (g.node(u).rightBorderSegment) {
+        result += ' [shape=larrow]';
+      } else if (g.node(u).leftBorderSegment) {
+        result += ' [shape=rarrow]';
+      } else if (g.node(u).nestingGraphTop) {
+        result += ' [shape=invtriangle]';
+      } else if (g.node(u).nestingGraphBottom) {
+        result += ' [shape=triangle]';
+      }
+      result += ';';
+    }
+  }
+
+  g.children(null).forEach(dfs);
+
+  ordering.forEach(function(layer) {
+    result += 'subgraph { rank=same; edge [style="invis"];';
+    result += layer.join('->');
+    result += '}';
+  });
+
+  g.eachEdge(function(e, u, v) {
+    result += u + '->' + v + ';';
+  });
+
+  result += '}';
+
+  return result;
+};
+
+/**
+ * Renders a graph in a stringified DOT format that indicates the position of
+ * of all of the nodes in the graph. This is best used with neato - dot does
+ * not appear to respect position information.
+ */
+exports.dotPositioning = function(g) {
+  var result = 'digraph {',
+      scale = 0.1; // scale factor for graphviz
+
+  g.eachNode(function(u, attrs) {
+    if (!g.children(u).length) {
+      result += u + ' [pos="' + (attrs.x * scale) + ',' + (-attrs.y * scale) + '!"';
+      if (attrs.dummySegment) {
+        result += ', shape=diamond';
+      } else if (attrs.rightBorderSegment) {
+        result += ', shape=larrow';
+      } else if (attrs.leftBorderSegment) {
+        result += ', shape=rarrow';
+      } else if (attrs.nestingGraphTop) {
+        result += ', shape=invtriangle';
+      } else if (attrs.nestingGraphBottom) {
+        result += ', shape=triangle';
+      }
+      result += ', label="' + u + ' ' + attrs.x + ',' + attrs.y + '"];';
+    }
+  });
+
+  g.eachEdge(function(e, u, v) {
+    result += u + '->' + v + ' [label="' + e +'"];';
+  });
+
+  result += '}';
+
+  return result;
+};
+
+},{"./util":24}],8:[function(require,module,exports){
 var util = require('./util'),
     rank = require('./rank'),
     order = require('./order'),
+    addBorderSegments = require('./addBorderSegments'),
+    normalize = require('./normalize'),
     CGraph = require('graphlib').CGraph,
     CDigraph = require('graphlib').CDigraph;
 
@@ -1078,18 +887,25 @@ module.exports = function() {
       // thus shortening them.
       util.time('normalize', normalize)(g);
 
+      // Add border segments for clusters
+      var cg = util.time('addBorderSegments', addBorderSegments)(g);
+
       // Order the nodes so that edge crossings are minimized.
-      util.time('order', order)(g, config.orderMaxSweeps);
+      util.time('order', order)(g, config.orderMaxSweeps, cg);
 
       // Find the x and y coordinates for every node in the graph.
       util.time('position', position.run)(g);
 
       // De-normalize the graph by removing dummy nodes and augmenting the
       // original long edges with coordinate information.
-      util.time('undoNormalize', undoNormalize)(g);
+      util.time('normalize.undo', normalize.undo)(g);
 
       // Reverses points for edges that are in a reversed state.
       util.time('fixupEdgePoints', fixupEdgePoints)(g);
+
+      // Remove border nodes from subgraphs and save information on the
+      // composite node.
+      util.time('borderSubgraphs', borderSubgraphs)(g);
 
       // Restore delete edges and reverse edges that were reversed in the rank
       // phase.
@@ -1103,74 +919,51 @@ module.exports = function() {
   }
 
   /*
-   * This function is responsible for 'normalizing' the graph. The process of
-   * normalization ensures that no edge in the graph has spans more than one
-   * rank. To do this it inserts dummy nodes as needed and links them by adding
-   * dummy edges. This function keeps enough information in the dummy nodes and
-   * edges to ensure that the original graph can be reconstructed later.
-   *
-   * This method assumes that the input graph is cycle free.
-   */
-  function normalize(g) {
-    var dummyCount = 0;
-    g.eachEdge(function(e, s, t, a) {
-      var sourceRank = g.node(s).rank;
-      var targetRank = g.node(t).rank;
-      if (sourceRank + 1 < targetRank) {
-        for (var u = s, rank = sourceRank + 1, i = 0; rank < targetRank; ++rank, ++i) {
-          var v = '_D' + (++dummyCount);
-          var node = {
-            width: a.width,
-            height: a.height,
-            edge: { id: e, source: s, target: t, attrs: a },
-            rank: rank,
-            dummy: true
-          };
-
-          // If this node represents a bend then we will use it as a control
-          // point. For edges with 2 segments this will be the center dummy
-          // node. For edges with more than two segments, this will be the
-          // first and last dummy node.
-          if (i === 0) node.index = 0;
-          else if (rank + 1 === targetRank) node.index = 1;
-
-          g.addNode(v, node);
-          g.addEdge(null, u, v, {});
-          u = v;
-        }
-        g.addEdge(null, u, t, {});
-        g.delEdge(e);
-      }
-    });
-  }
-
-  /*
-   * Reconstructs the graph as it was before normalization. The positions of
-   * dummy nodes are used to build an array of points for the original 'long'
-   * edge. Dummy nodes and edges are removed.
-   */
-  function undoNormalize(g) {
-    g.eachNode(function(u, a) {
-      if (a.dummy) {
-        if ('index' in a) {
-          var edge = a.edge;
-          if (!g.hasEdge(edge.id)) {
-            g.addEdge(edge.id, edge.source, edge.target, edge.attrs);
-          }
-          var points = g.edge(edge.id).points;
-          points[a.index] = { x: a.x, y: a.y, ul: a.ul, ur: a.ur, dl: a.dl, dr: a.dr };
-        }
-        g.delNode(u);
-      }
-    });
-  }
-
-  /*
    * For each edge that was reversed during the `acyclic` step, reverse its
    * array of points.
    */
   function fixupEdgePoints(g) {
     g.eachEdge(function(e, s, t, a) { if (a.reversed) a.points.reverse(); });
+  }
+
+  function borderSubgraphs(g) {
+    function dfs(u) {
+      if (g.children(u).length) {
+        var value = g.node(u),
+            topY = g.node(value.borderNodeTop).y,
+            bottomY = g.node(value.borderNodeBottom).y,
+            leftX,
+            rightX;
+
+        g.delNode(value.borderNodeTop);
+        delete value.borderNodeTop;
+        g.delNode(value.borderNodeBottom);
+        delete value.borderNodeBottom;
+
+        value.leftBorderSegments.forEach(function(v) {
+          // TODO: investigate bug with positioning....
+          leftX = leftX === undefined ? g.node(v).x : Math.min(g.node(v).x, leftX);
+          g.delNode(v);
+        });
+
+        value.rightBorderSegments.forEach(function(v) {
+          // TODO: investigate bug with positioning....
+          rightX = rightX === undefined ? g.node(v).x : Math.max(g.node(v).x, rightX);
+          g.delNode(v);
+        });
+
+        delete value.leftBorderSegments;
+        delete value.rightBorderSegments;
+
+        value.height = Math.abs(topY - bottomY);
+        value.y = value.height / 2 + Math.min(topY, bottomY);
+        value.width = Math.abs(leftX - rightX);
+        value.x = value.width / 2 + Math.min(leftX, rightX);
+
+        g.children(u).forEach(dfs);
+      }
+    }
+    g.children(null).forEach(dfs);
   }
 
   function createFinalGraph(g, isDirected) {
@@ -1185,10 +978,8 @@ module.exports = function() {
     // Attach bounding box information
     var maxX = 0, maxY = 0;
     g.eachNode(function(u, value) {
-      if (!g.children(u).length) {
-        maxX = Math.max(maxX, value.x + value.width / 2);
-        maxY = Math.max(maxY, value.y + value.height / 2);
-      }
+      maxX = Math.max(maxX, value.x + value.width / 2);
+      maxY = Math.max(maxY, value.y + value.height / 2);
     });
     g.eachEdge(function(e, u, v, value) {
       var maxXPoints = Math.max.apply(Math, value.points.map(function(p) { return p.x; }));
@@ -1216,12 +1007,130 @@ module.exports = function() {
 };
 
 
-},{"./order":13,"./position":18,"./rank":19,"./util":26,"graphlib":28}],13:[function(require,module,exports){
+},{"./addBorderSegments":6,"./normalize":9,"./order":10,"./position":15,"./rank":16,"./util":24,"graphlib":31}],9:[function(require,module,exports){
+module.exports = normalize;
+module.exports.undo = undoNormalize;
+
+/*
+ * This function is responsible for 'normalizing' the graph. The process of
+ * normalization ensures that no edge in the graph has spans more than one
+ * rank. To do this it inserts dummy nodes as needed and links them by adding
+ * dummy edges. This function keeps enough information in the dummy nodes and
+ * edges to ensure that the original graph can be reconstructed later.
+ *
+ * This method assumes that the input graph is cycle free.
+ */
+function normalize(g) {
+  var dummyCount = 0;
+  g.eachEdge(function(e, s, t, a) {
+    var
+        // The rank of the source and target of the edge, held constant over
+        // the span of this function.
+        sourceRank = g.node(s).rank,
+        targetRank = g.node(t).rank,
+
+        // The lowest common ancestor for s and t
+        lca = findLCA(g, s, t),
+
+        // The id of the current node
+        u = s,
+
+        // The id of the next dummy node to create
+        v,
+
+        // The attributes for the next dummy node to create
+        node,
+
+        // The rank of the next dummy node to create
+        rank;
+
+    if (sourceRank + 1 < targetRank) {
+      for (rank = sourceRank + 1; rank < targetRank; ++rank) {
+        v = '_D' + (++dummyCount);
+        node = {
+          width: a.width,
+          height: a.height,
+          edge: { id: e, source: s, target: t, attrs: a },
+          rank: rank,
+          dummySegment: true,
+          dummy: true
+        };
+        g.addNode(v, node);
+        g.parent(v, lca);
+
+        // If this node represents a bend then we will use it as a control
+        // point. For edges with 2 segments this will be the center dummy
+        // node. For edges with more than two segments, this will be the
+        // first and last dummy node.
+        if (rank - 1 === sourceRank) {
+          node.index = 0;
+          if (g.parent(s) !== null && g.node(g.node(g.parent(s)).borderNodeBottom).rank === rank) {
+            g.parent(v, g.parent(s));
+          }
+        }
+        else if (rank + 1 === targetRank) {
+          node.index = 1;
+          if (g.parent(t) !== null && g.node(g.node(g.parent(t)).borderNodeTop).rank === rank) {
+            g.parent(v, g.parent(t));
+          }
+        }
+
+        g.addEdge(null, u, v, {});
+        u = v;
+      }
+      g.addEdge(null, u, t, {});
+      g.delEdge(e);
+    }
+  });
+}
+
+/*
+ * Returns the lowest common ancestor of nodes u and v in the nesting tree of
+ * graph g.
+ */
+function findLCA(g, u, v) {
+  var visited = {};
+  while (u !== null && v !== null) {
+    if (visited[u]) return u;
+    visited[u] = true;
+    u = g.parent(u);
+
+    if (visited[v]) return v;
+    visited[v] = true;
+    v = g.parent(v);
+  }
+  return null;
+}
+
+/*
+ * Reconstructs the graph as it was before normalization. The positions of
+ * dummy nodes are used to build an array of points for the original 'long'
+ * edge. Dummy nodes and edges are removed.
+ */
+function undoNormalize(g) {
+  g.eachNode(function(u, a) {
+    if (a.dummySegment) {
+      if ('index' in a) {
+        var edge = a.edge;
+        if (!g.hasEdge(edge.id)) {
+          g.addEdge(edge.id, edge.source, edge.target, edge.attrs);
+        }
+        var points = g.edge(edge.id).points;
+        points[a.index] = { x: a.x, y: a.y, ul: a.ul, ur: a.ur, dl: a.dl, dr: a.dr };
+      }
+      g.delNode(u);
+    }
+  });
+}
+
+
+},{}],10:[function(require,module,exports){
 var util = require('./util'),
     crossCount = require('./order/crossCount'),
     initLayerGraphs = require('./order/initLayerGraphs'),
     initOrder = require('./order/initOrder'),
-    sortLayer = require('./order/sortLayer');
+    sortLayer = require('./order/sortLayer'),
+    Digraph = require('graphlib').Digraph;
 
 module.exports = order;
 
@@ -1234,9 +1143,12 @@ order.DEFAULT_MAX_SWEEPS = DEFAULT_MAX_SWEEPS;
  * `debugLevel`. If `maxSweeps` is not specified we use `DEFAULT_MAX_SWEEPS`.
  * If `debugLevel` is not set we assume 0.
  */
-function order(g, maxSweeps) {
-  if (arguments.length < 2) {
-    maxSweeps = DEFAULT_MAX_SWEEPS;
+function order(g, maxSweeps, cg) {
+  if (arguments.length < 3) {
+    cg = new Digraph();
+    if (arguments.length < 2) {
+      maxSweeps = DEFAULT_MAX_SWEEPS;
+    }
   }
 
   var restarts = g.graph().orderRestarts || 0;
@@ -1258,13 +1170,13 @@ function order(g, maxSweeps) {
 
   for (var j = 0; j < Number(restarts) + 1 && allTimeBestCC !== 0; ++j) {
     currentBestCC = Number.MAX_VALUE;
-    initOrder(g, restarts > 0);
+    initOrder(g, cg, restarts > 0);
 
     util.log(2, 'Order phase start cross count: ' + g.graph().orderInitCC);
 
     var i, lastBest, cc;
     for (i = 0, lastBest = 0; lastBest < 4 && i < maxSweeps && currentBestCC > 0; ++i, ++lastBest, ++iters) {
-      sweep(g, layerGraphs, i);
+      sweep(g, layerGraphs, i, cg);
       cc = crossCount(g);
       if (cc < currentBestCC) {
         lastBest = 0;
@@ -1309,29 +1221,27 @@ function successorWeights(g, nodes) {
   return weights;
 }
 
-function sweep(g, layerGraphs, iter) {
+function sweep(g, layerGraphs, iter, cg) {
   if (iter % 2 === 0) {
-    sweepDown(g, layerGraphs, iter);
+    sweepDown(g, layerGraphs, cg.copy());
   } else {
-    sweepUp(g, layerGraphs, iter);
+    sweepUp(g, layerGraphs, cg.copy());
   }
 }
 
-function sweepDown(g, layerGraphs) {
-  var cg;
+function sweepDown(g, layerGraphs, cg) {
   for (i = 1; i < layerGraphs.length; ++i) {
     cg = sortLayer(layerGraphs[i], cg, predecessorWeights(g, layerGraphs[i].nodes()));
   }
 }
 
-function sweepUp(g, layerGraphs) {
-  var cg;
+function sweepUp(g, layerGraphs, cg) {
   for (i = layerGraphs.length - 2; i >= 0; --i) {
-    sortLayer(layerGraphs[i], cg, successorWeights(g, layerGraphs[i].nodes()));
+    cg = sortLayer(layerGraphs[i], cg, successorWeights(g, layerGraphs[i].nodes()));
   }
 }
 
-},{"./order/crossCount":14,"./order/initLayerGraphs":15,"./order/initOrder":16,"./order/sortLayer":17,"./util":26}],14:[function(require,module,exports){
+},{"./order/crossCount":11,"./order/initLayerGraphs":12,"./order/initOrder":13,"./order/sortLayer":14,"./util":24,"graphlib":31}],11:[function(require,module,exports){
 var util = require('../util');
 
 module.exports = crossCount;
@@ -1352,7 +1262,7 @@ function crossCount(g) {
  * This function searches through a ranked and ordered graph and counts the
  * number of edges that cross. This algorithm is derived from:
  *
- *    W. Barth et al., Bilayer Cross Counting, JGAA, 8(2) 179â€“194 (2004)
+ *    W. Barth et al., Bilayer Cross Counting, JGAA, 8(2) 179–194 (2004)
  */
 function twoLayerCrossCount(g, layer1, layer2) {
   var indices = [];
@@ -1388,7 +1298,7 @@ function twoLayerCrossCount(g, layer1, layer2) {
   return cc;
 }
 
-},{"../util":26}],15:[function(require,module,exports){
+},{"../util":24}],12:[function(require,module,exports){
 var nodesFromList = require('graphlib').filter.nodesFromList,
     /* jshint -W079 */
     Set = require('cp-data').Set;
@@ -1439,8 +1349,9 @@ function initLayerGraphs(g) {
   return layerGraphs;
 }
 
-},{"cp-data":5,"graphlib":28}],16:[function(require,module,exports){
+},{"cp-data":26,"graphlib":31}],13:[function(require,module,exports){
 var crossCount = require('./crossCount'),
+    PriorityQueue = require('cp-data').PriorityQueue;
     util = require('../util');
 
 module.exports = initOrder;
@@ -1450,9 +1361,24 @@ module.exports = initOrder;
  * attribute) this function attaches an `order` attribute that uniquely
  * arranges each node of each rank. If no constraint graph is provided the
  * order of the nodes in each rank is entirely arbitrary.
+ *
+ * TODO: doc this next bit further...
+ * We need to take into account any constraints that affect the initial node
+ * order. Furthermore we still want to respect random assignment as long as
+ * it respects constraints. There may be a better way to do this. For now,
+ * we add all unconstrained nodes to a priority queue with its key either being
+ * its initial position (for stable order) or a random number. Then we add all
+ * sources from the constraint graph. As we assigned a position to a source
+ * in the constraint graph we remove it and add any new sources. This
+ * process looks similar to topsort.
+ *
+ * TODO: More performant way to do this while retaining the above
+ * characteristics?
  */
-function initOrder(g, random) {
+function initOrder(g, cg, random) {
   var layers = [];
+
+  cg = cg.copy();
 
   g.eachNode(function(u, value) {
     var layer = layers[value.rank];
@@ -1464,12 +1390,34 @@ function initOrder(g, random) {
   });
 
   layers.forEach(function(layer) {
-    if (random) {
-      util.shuffle(layer);
+    var pq = new PriorityQueue(),
+        keys = {},
+        u,
+        successors,
+        i = 0;
+
+    function tryAddToQueue(v) {
+      if (!cg.hasNode(v) || !cg.inEdges(v).length) {
+        pq.add(v, keys[v]);
+      }
     }
-    layer.forEach(function(u, i) {
-      g.node(u).order = i;
+
+    // Add initial set
+    layer.forEach(function(v, i) {
+      keys[v] = random ? Math.random() : i;
+      tryAddToQueue(v);
     });
+
+    while (pq.size()) {
+      u = pq.removeMin();
+      g.node(u).order = i++;
+
+      if (cg.hasNode(u)) {
+        successors = cg.successors(u);
+        cg.delNode(u);
+        successors.forEach(tryAddToQueue);
+      }
+    }
   });
 
   var cc = crossCount(g);
@@ -1477,56 +1425,28 @@ function initOrder(g, random) {
   g.graph().orderCC = Number.MAX_VALUE;
 }
 
-},{"../util":26,"./crossCount":14}],17:[function(require,module,exports){
-var util = require('../util');
-/*
+},{"../util":24,"./crossCount":11,"cp-data":26}],14:[function(require,module,exports){
+var util = require('../util'),
     Digraph = require('graphlib').Digraph,
-    topsort = require('graphlib').alg.topsort,
-    nodesFromList = require('graphlib').filter.nodesFromList;
-*/
+    topsort = require('graphlib').alg.topsort;
 
 module.exports = sortLayer;
 
-/*
 function sortLayer(g, cg, weights) {
+  if (!cg) cg = new Digraph();
+  weights = adjustWeights(g, weights);
   var result = sortLayerSubgraph(g, null, cg, weights);
+
   result.list.forEach(function(u, i) {
     g.node(u).order = i;
   });
-  return result.constraintGraph;
-}
-*/
 
-function sortLayer(g, cg, weights) {
-  var ordering = [];
-  var bs = {};
-  g.eachNode(function(u, value) {
-    ordering[value.order] = u;
-    var ws = weights[u];
-    if (ws.length) {
-      bs[u] = util.sum(ws) / ws.length;
-    }
-  });
-
-  var toSort = g.nodes().filter(function(u) { return bs[u] !== undefined; });
-  toSort.sort(function(x, y) {
-    return bs[x] - bs[y] || g.node(x).order - g.node(y).order;
-  });
-
-  for (var i = 0, j = 0, jl = toSort.length; j < jl; ++i) {
-    if (bs[ordering[i]] !== undefined) {
-      g.node(toSort[j++]).order = i;
-    }
-  }
+  return mergeDigraphs(cg, result.constraintGraph);
 }
 
-// TOOD: re-enable constrained sorting once we have a strategy for handling
-// undefined barycenters.
-/*
 function sortLayerSubgraph(g, sg, cg, weights) {
-  cg = cg ? cg.filterNodes(nodesFromList(g.children(sg))) : new Digraph();
-
-  var nodeData = {};
+  var subgraphCG = cg.filterNodes(function(u) { return g.hasNode(u) && g.parent(u) === sg; }),
+      nodeData = {};
   g.children(sg).forEach(function(u) {
     if (g.children(u).length) {
       nodeData[u] = sortLayerSubgraph(g, u, cg, weights);
@@ -1536,25 +1456,28 @@ function sortLayerSubgraph(g, sg, cg, weights) {
       var ws = weights[u];
       nodeData[u] = {
         degree: ws.length,
-        barycenter: ws.length > 0 ? util.sum(ws) / ws.length : 0,
+        barycenter: util.sum(ws) / ws.length,
+        order: g.node(u).order,
+        orderCount: 1,
         list: [u]
       };
     }
   });
 
-  resolveViolatedConstraints(g, cg, nodeData);
+  resolveViolatedConstraints(g, subgraphCG, nodeData);
 
   var keys = Object.keys(nodeData);
   keys.sort(function(x, y) {
-    return nodeData[x].barycenter - nodeData[y].barycenter;
+    return nodeData[x].barycenter - nodeData[y].barycenter ||
+           nodeData[x].order - nodeData[y].order;
   });
 
   var result =  keys.map(function(u) { return nodeData[u]; })
                     .reduce(function(lhs, rhs) { return mergeNodeData(g, lhs, rhs); });
+
   return result;
 }
 
-/*
 function mergeNodeData(g, lhs, rhs) {
   var cg = mergeDigraphs(lhs.constraintGraph, rhs.constraintGraph);
 
@@ -1571,6 +1494,9 @@ function mergeNodeData(g, lhs, rhs) {
     degree: lhs.degree + rhs.degree,
     barycenter: (lhs.barycenter * lhs.degree + rhs.barycenter * rhs.degree) /
                 (lhs.degree + rhs.degree),
+    order: (lhs.order * lhs.orderCount + rhs.order * rhs.orderCount) /
+           (lhs.orderCount + rhs.orderCount),
+    orderCount: lhs.orderCount + rhs.orderCount,
     list: lhs.list.concat(rhs.list),
     firstSG: lhs.firstSG !== undefined ? lhs.firstSG : rhs.firstSG,
     lastSG: rhs.lastSG !== undefined ? rhs.lastSG : lhs.lastSG,
@@ -1582,10 +1508,10 @@ function mergeDigraphs(lhs, rhs) {
   if (lhs === undefined) return rhs;
   if (rhs === undefined) return lhs;
 
-  lhs = lhs.copy();
-  rhs.nodes().forEach(function(u) { lhs.addNode(u); });
-  rhs.edges().forEach(function(e, u, v) { lhs.addEdge(null, u, v); });
-  return lhs;
+  var dest = lhs.copy();
+  rhs.eachNode(function(u) { if (!dest.hasNode(u)) dest.addNode(u); });
+  rhs.eachEdge(function(e, u, v) { dest.addEdge(null, u, v); });
+  return dest;
 }
 
 function resolveViolatedConstraints(g, cg, nodeData) {
@@ -1594,13 +1520,13 @@ function resolveViolatedConstraints(g, cg, nodeData) {
   function collapseNodes(u, v, w) {
     // TODO original paper removes self loops, but it is not obvious when this would happen
     cg.inEdges(u).forEach(function(e) {
-      cg.delEdge(e);
       cg.addEdge(null, cg.source(e), w);
+      cg.delEdge(e);
     });
 
     cg.outEdges(v).forEach(function(e) {
-      cg.delEdge(e);
       cg.addEdge(null, w, cg.target(e));
+      cg.delEdge(e);
     });
 
     cg.delNode(u);
@@ -1640,13 +1566,50 @@ function findViolatedConstraint(cg, nodeData) {
     }
   }
 }
-*/
 
-},{"../util":26}],18:[function(require,module,exports){
+// Adjust weights so that they fall in the range of 0..|N|-1. If a node has no
+// weight assigned then set its adjusted weight to its current position. This
+// allows us to better retain the origiinal position of nodes without neighbors.
+function adjustWeights(g, weights) {
+  var minW = Number.MAX_VALUE,
+      maxW = 0,
+      adjusted = {};
+  g.eachNode(function(u) {
+    if (g.children(u).length) return;
+
+    var ws = weights[u];
+    if (ws.length) {
+      minW = Math.min(minW, util.min(ws));
+      maxW = Math.max(maxW, util.max(ws));
+    }
+  });
+
+  var rangeW = (maxW - minW);
+  g.eachNode(function(u) {
+    if (g.children(u).length) return;
+
+    var ws = weights[u];
+    if (!ws.length) {
+      adjusted[u] = [g.node(u).order];
+    } else {
+      adjusted[u] = ws.map(function(w) {
+        if (rangeW) {
+          return (w - minW) * (g.order() - 1) / rangeW;
+        } else {
+          return g.order() - 1 / 2;
+        }
+      });
+    }
+  });
+
+  return adjusted;
+}
+
+},{"../util":24,"graphlib":31}],15:[function(require,module,exports){
 var util = require('./util');
 
 /*
- * The algorithms here are based on Brandes and KÃ¶pf, "Fast and Simple
+ * The algorithms here are based on Brandes and Köpf, "Fast and Simple
  * Horizontal Coordinate Assignment".
  */
 module.exports = function() {
@@ -2082,12 +2045,13 @@ module.exports = function() {
   }
 };
 
-},{"./util":26}],19:[function(require,module,exports){
+},{"./util":24}],16:[function(require,module,exports){
 var util = require('./util'),
     acyclic = require('./rank/acyclic'),
     initRank = require('./rank/initRank'),
     feasibleTree = require('./rank/feasibleTree'),
     constraints = require('./rank/constraints'),
+    nestingGraph = require('./rank/nestingGraph'),
     simplex = require('./rank/simplex'),
     components = require('graphlib').alg.components,
     filter = require('graphlib').filter;
@@ -2117,6 +2081,9 @@ function run(g, useSimplex) {
   // state until the very end.
   util.time('acyclic', acyclic)(g);
 
+  // Add nesting edges
+  util.time('nestingGraph.augment', nestingGraph.augment)(g);
+
   // Convert the graph into a flat graph for ranking
   var flatGraph = g.filterNodes(util.filterNonSubgraphs(g));
 
@@ -2129,6 +2096,9 @@ function run(g, useSimplex) {
     rankComponent(subgraph, useSimplex);
   });
 
+  // Remove nesting edges
+  util.time('nestingGraph.removeEdges', nestingGraph.removeEdges)(g);
+
   // Relax original constraints
   util.time('constraints.relax', constraints.relax(g));
 
@@ -2138,6 +2108,9 @@ function run(g, useSimplex) {
   // edges" and mark them as such. The acyclic algorithm will reverse them as a
   // post processing step.
   util.time('reorientEdges', reorientEdges)(g);
+
+  // Remove empty layers which may have been introduced by the nesting graph.
+  util.time('nestingGraph.removeEmptyLayers', nestingGraph.removeEmptyLayers)(g);
 }
 
 function restoreEdges(g) {
@@ -2190,6 +2163,7 @@ function addDummyNode(g, e, u, v, a, index, isLabel) {
     width: isLabel ? a.width : 0,
     height: isLabel ? a.height : 0,
     edge: { id: e, source: u, target: v, attrs: a },
+    dummySegment: true,
     dummy: true,
     index: index
   });
@@ -2220,7 +2194,7 @@ function normalize(g) {
   g.eachNode(function(u, node) { node.rank -= m; });
 }
 
-},{"./rank/acyclic":20,"./rank/constraints":21,"./rank/feasibleTree":22,"./rank/initRank":23,"./rank/simplex":25,"./util":26,"graphlib":28}],20:[function(require,module,exports){
+},{"./rank/acyclic":17,"./rank/constraints":18,"./rank/feasibleTree":19,"./rank/initRank":20,"./rank/nestingGraph":21,"./rank/simplex":23,"./util":24,"graphlib":31}],17:[function(require,module,exports){
 var util = require('../util');
 
 module.exports = acyclic;
@@ -2283,7 +2257,7 @@ function undo(g) {
   });
 }
 
-},{"../util":26}],21:[function(require,module,exports){
+},{"../util":24}],18:[function(require,module,exports){
 exports.apply = function(g) {
   function dfs(sg) {
     var rankSets = {};
@@ -2452,7 +2426,7 @@ exports.relax = function(g) {
   });
 };
 
-},{}],22:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require('cp-data').Set,
 /* jshint +W079 */
@@ -2577,7 +2551,7 @@ function slack(g, u, v) {
   return rankDiff - maxMinLen;
 }
 
-},{"../util":26,"cp-data":5,"graphlib":28}],23:[function(require,module,exports){
+},{"../util":24,"cp-data":26,"graphlib":31}],20:[function(require,module,exports){
 var util = require('../util'),
     topsort = require('graphlib').alg.topsort;
 
@@ -2609,7 +2583,125 @@ function initRank(g) {
   });
 }
 
-},{"../util":26,"graphlib":28}],24:[function(require,module,exports){
+},{"../util":24,"graphlib":31}],21:[function(require,module,exports){
+exports.augment = augment;
+exports.removeEdges = removeEdges;
+exports.removeEmptyLayers = removeEmptyLayers;
+
+/*
+ * The concept of a nesting graph comes from Sander, "Layout of Compound
+ * Directed Graphs". The idea is to add new "border nodes" at the top and
+ * bottom of each cluster. This serves to define a portion of the bounding box
+ * for the cluster. We also add edges between the top and bottom border nodes
+ * and any nodes or clusters contained within it. This ensures that all
+ * children are contained within the cluster's border.
+ *
+ * We do not want regular (or base) nodes to be at the same level as border
+ * nodes because the latter should be much smaller than the former. Sander
+ * proposes to place base nodes at levels in 2k + 1, where k is the height of
+ * the tree.
+ *
+ * We currently do not support cluster to cluster edges with this algorithm.
+ *
+ * This algorithm expects as input a directed graph with each edge having a
+ * `minLen` attribute. It updates the graph by adding edges as described above
+ * and by lengthening existing edges to ensure that base nodes and border nodes
+ * are never at the same level.
+ */
+function augment(g) {
+  var height = treeHeight(g) - 1;
+
+  g.eachEdge(function(e, u, v, value) {
+    value.minLen *= 2 * height + 1;
+  });
+
+  function dfs(u) {
+    var children = g.children(u);
+
+    if (children.length) {
+      children.forEach(function(v) { dfs(v); });
+
+      // Add a top and bottom border for clusters (except the root graph)
+      if (u !== null) {
+        var top = g.addNode(null, { width: 0, height: 0, nestingGraphTop: true }),
+            bottom = g.addNode(null, { width: 0, height: 0, nestingGraphBottom: true }),
+            value = g.node(u),
+            depth = value.treeDepth;
+        g.parent(top, u);
+        g.parent(bottom, u);
+        value.borderNodeTop = top;
+        value.borderNodeBottom = bottom;
+
+        children.forEach(function(v) {
+          var minLen = g.children(v).length ? 1 : height - depth + 1;
+          g.addEdge(null, top, v, { minLen: minLen, nestingEdge: true });
+          g.addEdge(null, v, bottom, { minLen: minLen, nestingEdge: true });
+        });
+      }
+    }
+  }
+
+  dfs(null);
+}
+
+/*
+ * This function removes any nesting edges that were added with the `augment`
+ * function.
+ */
+function removeEdges(g) {
+  g.eachEdge(function(e, u, v, value) {
+    if (value.nestingEdge) {
+      g.delEdge(e);
+    }
+  });
+}
+
+function removeEmptyLayers(g) {
+  var height = treeHeight(g) - 1;
+
+  var layers = [];
+  g.eachNode(function(u, value) {
+    if (!(value.rank in layers)) {
+      layers[value.rank] = [u];
+    } else {
+      layers[value.rank].push(u);
+    }
+  });
+
+  for (var i = 0, il = layers.length, j = 0; i < il; ++i) {
+    var layer = layers[i];
+    if (layer) {
+      for (var k = 0, kl = layer.length; k < kl; ++k) {
+        g.node(layer[k]).rank = j;
+      }
+      ++j;
+    } else if (i % (2 * height + 1) === 0) {
+      ++j;
+    }
+  }
+}
+
+/*
+ * Return the height of the given tree and augments each compound node with
+ * its depth.
+ */
+function treeHeight(g) {
+  function dfs(u, height) {
+    var children = g.children(u);
+    if (children.length === 0) {
+      return height;
+    } else {
+      if (u !== null) {
+        g.node(u).treeDepth = height;
+      }
+      return Math.max.apply(Math,
+                            children.map(function(v) { return dfs(v, height + 1); }));
+    }
+  }
+  return dfs(null, 0);
+}
+
+},{}],22:[function(require,module,exports){
 module.exports = {
   slack: slack
 };
@@ -2627,7 +2719,7 @@ function slack(graph, u, v, minLen) {
   return Math.abs(graph.node(u).rank - graph.node(v).rank) - minLen;
 }
 
-},{}],25:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var util = require('../util'),
     rankUtil = require('./rankUtil');
 
@@ -2937,7 +3029,7 @@ function minimumLength(graph, u, v) {
   }
 }
 
-},{"../util":26,"./rankUtil":24}],26:[function(require,module,exports){
+},{"../util":24,"./rankUtil":22}],24:[function(require,module,exports){
 /*
  * Returns the smallest value in the array.
  */
@@ -3056,10 +3148,366 @@ log.level = 0;
 
 exports.log = log;
 
-},{}],27:[function(require,module,exports){
-module.exports = '0.4.5';
+},{}],25:[function(require,module,exports){
+module.exports = '0.4.6-pre';
+
+},{}],26:[function(require,module,exports){
+exports.Set = require('./lib/Set');
+exports.PriorityQueue = require('./lib/PriorityQueue');
+exports.version = require('./lib/version');
+
+},{"./lib/PriorityQueue":27,"./lib/Set":28,"./lib/version":30}],27:[function(require,module,exports){
+module.exports = PriorityQueue;
+
+/**
+ * A min-priority queue data structure. This algorithm is derived from Cormen,
+ * et al., "Introduction to Algorithms". The basic idea of a min-priority
+ * queue is that you can efficiently (in O(1) time) get the smallest key in
+ * the queue. Adding and removing elements takes O(log n) time. A key can
+ * have its priority decreased in O(log n) time.
+ */
+function PriorityQueue() {
+  this._arr = [];
+  this._keyIndices = {};
+}
+
+/**
+ * Returns the number of elements in the queue. Takes `O(1)` time.
+ */
+PriorityQueue.prototype.size = function() {
+  return this._arr.length;
+};
+
+/**
+ * Returns the keys that are in the queue. Takes `O(n)` time.
+ */
+PriorityQueue.prototype.keys = function() {
+  return this._arr.map(function(x) { return x.key; });
+};
+
+/**
+ * Returns `true` if **key** is in the queue and `false` if not.
+ */
+PriorityQueue.prototype.has = function(key) {
+  return key in this._keyIndices;
+};
+
+/**
+ * Returns the priority for **key**. If **key** is not present in the queue
+ * then this function returns `undefined`. Takes `O(1)` time.
+ *
+ * @param {Object} key
+ */
+PriorityQueue.prototype.priority = function(key) {
+  var index = this._keyIndices[key];
+  if (index !== undefined) {
+    return this._arr[index].priority;
+  }
+};
+
+/**
+ * Returns the key for the minimum element in this queue. If the queue is
+ * empty this function throws an Error. Takes `O(1)` time.
+ */
+PriorityQueue.prototype.min = function() {
+  if (this.size() === 0) {
+    throw new Error("Queue underflow");
+  }
+  return this._arr[0].key;
+};
+
+/**
+ * Inserts a new key into the priority queue. If the key already exists in
+ * the queue this function returns `false`; otherwise it will return `true`.
+ * Takes `O(n)` time.
+ *
+ * @param {Object} key the key to add
+ * @param {Number} priority the initial priority for the key
+ */
+PriorityQueue.prototype.add = function(key, priority) {
+  var keyIndices = this._keyIndices;
+  if (!(key in keyIndices)) {
+    var arr = this._arr;
+    var index = arr.length;
+    keyIndices[key] = index;
+    arr.push({key: key, priority: priority});
+    this._decrease(index);
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Removes and returns the smallest key in the queue. Takes `O(log n)` time.
+ */
+PriorityQueue.prototype.removeMin = function() {
+  this._swap(0, this._arr.length - 1);
+  var min = this._arr.pop();
+  delete this._keyIndices[min.key];
+  this._heapify(0);
+  return min.key;
+};
+
+/**
+ * Decreases the priority for **key** to **priority**. If the new priority is
+ * greater than the previous priority, this function will throw an Error.
+ *
+ * @param {Object} key the key for which to raise priority
+ * @param {Number} priority the new priority for the key
+ */
+PriorityQueue.prototype.decrease = function(key, priority) {
+  var index = this._keyIndices[key];
+  if (priority > this._arr[index].priority) {
+    throw new Error("New priority is greater than current priority. " +
+        "Key: " + key + " Old: " + this._arr[index].priority + " New: " + priority);
+  }
+  this._arr[index].priority = priority;
+  this._decrease(index);
+};
+
+PriorityQueue.prototype._heapify = function(i) {
+  var arr = this._arr;
+  var l = 2 * i,
+      r = l + 1,
+      largest = i;
+  if (l < arr.length) {
+    largest = arr[l].priority < arr[largest].priority ? l : largest;
+    if (r < arr.length) {
+      largest = arr[r].priority < arr[largest].priority ? r : largest;
+    }
+    if (largest !== i) {
+      this._swap(i, largest);
+      this._heapify(largest);
+    }
+  }
+};
+
+PriorityQueue.prototype._decrease = function(index) {
+  var arr = this._arr;
+  var priority = arr[index].priority;
+  var parent;
+  while (index !== 0) {
+    parent = index >> 1;
+    if (arr[parent].priority < priority) {
+      break;
+    }
+    this._swap(index, parent);
+    index = parent;
+  }
+};
+
+PriorityQueue.prototype._swap = function(i, j) {
+  var arr = this._arr;
+  var keyIndices = this._keyIndices;
+  var origArrI = arr[i];
+  var origArrJ = arr[j];
+  arr[i] = origArrJ;
+  arr[j] = origArrI;
+  keyIndices[origArrJ.key] = i;
+  keyIndices[origArrI.key] = j;
+};
 
 },{}],28:[function(require,module,exports){
+var util = require('./util');
+
+module.exports = Set;
+
+/**
+ * Constructs a new Set with an optional set of `initialKeys`.
+ *
+ * It is important to note that keys are coerced to String for most purposes
+ * with this object, similar to the behavior of JavaScript's Object. For
+ * example, the following will add only one key:
+ *
+ *     var s = new Set();
+ *     s.add(1);
+ *     s.add("1");
+ *
+ * However, the type of the key is preserved internally so that `keys` returns
+ * the original key set uncoerced. For the above example, `keys` would return
+ * `[1]`.
+ */
+function Set(initialKeys) {
+  this._size = 0;
+  this._keys = {};
+
+  if (initialKeys) {
+    for (var i = 0, il = initialKeys.length; i < il; ++i) {
+      this.add(initialKeys[i]);
+    }
+  }
+}
+
+/**
+ * Returns a new Set that represents the set intersection of the array of given
+ * sets.
+ */
+Set.intersect = function(sets) {
+  if (sets.length === 0) {
+    return new Set();
+  }
+
+  var result = new Set(!util.isArray(sets[0]) ? sets[0].keys() : sets[0]);
+  for (var i = 1, il = sets.length; i < il; ++i) {
+    var resultKeys = result.keys(),
+        other = !util.isArray(sets[i]) ? sets[i] : new Set(sets[i]);
+    for (var j = 0, jl = resultKeys.length; j < jl; ++j) {
+      var key = resultKeys[j];
+      if (!other.has(key)) {
+        result.remove(key);
+      }
+    }
+  }
+
+  return result;
+};
+
+/**
+ * Returns a new Set that represents the set union of the array of given sets.
+ */
+Set.union = function(sets) {
+  var totalElems = util.reduce(sets, function(lhs, rhs) {
+    return lhs + (rhs.size ? rhs.size() : rhs.length);
+  }, 0);
+  var arr = new Array(totalElems);
+
+  var k = 0;
+  for (var i = 0, il = sets.length; i < il; ++i) {
+    var cur = sets[i],
+        keys = !util.isArray(cur) ? cur.keys() : cur;
+    for (var j = 0, jl = keys.length; j < jl; ++j) {
+      arr[k++] = keys[j];
+    }
+  }
+
+  return new Set(arr);
+};
+
+/**
+ * Returns the size of this set in `O(1)` time.
+ */
+Set.prototype.size = function() {
+  return this._size;
+};
+
+/**
+ * Returns the keys in this set. Takes `O(n)` time.
+ */
+Set.prototype.keys = function() {
+  return values(this._keys);
+};
+
+/**
+ * Tests if a key is present in this Set. Returns `true` if it is and `false`
+ * if not. Takes `O(1)` time.
+ */
+Set.prototype.has = function(key) {
+  return key in this._keys;
+};
+
+/**
+ * Adds a new key to this Set if it is not already present. Returns `true` if
+ * the key was added and `false` if it was already present. Takes `O(1)` time.
+ */
+Set.prototype.add = function(key) {
+  if (!(key in this._keys)) {
+    this._keys[key] = key;
+    ++this._size;
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Removes a key from this Set. If the key was removed this function returns
+ * `true`. If not, it returns `false`. Takes `O(1)` time.
+ */
+Set.prototype.remove = function(key) {
+  if (key in this._keys) {
+    delete this._keys[key];
+    --this._size;
+    return true;
+  }
+  return false;
+};
+
+/*
+ * Returns an array of all values for properties of **o**.
+ */
+function values(o) {
+  var ks = Object.keys(o),
+      len = ks.length,
+      result = new Array(len),
+      i;
+  for (i = 0; i < len; ++i) {
+    result[i] = o[ks[i]];
+  }
+  return result;
+}
+
+},{"./util":29}],29:[function(require,module,exports){
+/*
+ * This polyfill comes from
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/isArray
+ */
+if(!Array.isArray) {
+  exports.isArray = function (vArg) {
+    return Object.prototype.toString.call(vArg) === '[object Array]';
+  };
+} else {
+  exports.isArray = Array.isArray;
+}
+
+/*
+ * Slightly adapted polyfill from
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce
+ */
+if ('function' !== typeof Array.prototype.reduce) {
+  exports.reduce = function(array, callback, opt_initialValue) {
+    'use strict';
+    if (null === array || 'undefined' === typeof array) {
+      // At the moment all modern browsers, that support strict mode, have
+      // native implementation of Array.prototype.reduce. For instance, IE8
+      // does not support strict mode, so this check is actually useless.
+      throw new TypeError(
+          'Array.prototype.reduce called on null or undefined');
+    }
+    if ('function' !== typeof callback) {
+      throw new TypeError(callback + ' is not a function');
+    }
+    var index, value,
+        length = array.length >>> 0,
+        isValueSet = false;
+    if (1 < arguments.length) {
+      value = opt_initialValue;
+      isValueSet = true;
+    }
+    for (index = 0; length > index; ++index) {
+      if (array.hasOwnProperty(index)) {
+        if (isValueSet) {
+          value = callback(value, array[index], index, array);
+        }
+        else {
+          value = array[index];
+          isValueSet = true;
+        }
+      }
+    }
+    if (!isValueSet) {
+      throw new TypeError('Reduce of empty array with no initial value');
+    }
+    return value;
+  };
+} else {
+  exports.reduce = function(array, callback, opt_initialValue) {
+    return array.reduce(callback, opt_initialValue);
+  };
+}
+
+},{}],30:[function(require,module,exports){
+module.exports = '1.1.3';
+
+},{}],31:[function(require,module,exports){
 exports.Graph = require("./lib/Graph");
 exports.Digraph = require("./lib/Digraph");
 exports.CGraph = require("./lib/CGraph");
@@ -3092,7 +3540,7 @@ exports.filter = {
 
 exports.version = require("./lib/version");
 
-},{"./lib/CDigraph":30,"./lib/CGraph":31,"./lib/Digraph":32,"./lib/Graph":33,"./lib/alg/components":34,"./lib/alg/dijkstra":35,"./lib/alg/dijkstraAll":36,"./lib/alg/findCycles":37,"./lib/alg/floydWarshall":38,"./lib/alg/isAcyclic":39,"./lib/alg/postorder":40,"./lib/alg/preorder":41,"./lib/alg/prim":42,"./lib/alg/tarjan":43,"./lib/alg/topsort":44,"./lib/converter/json.js":46,"./lib/filter":47,"./lib/graph-converters":48,"./lib/version":50}],29:[function(require,module,exports){
+},{"./lib/CDigraph":33,"./lib/CGraph":34,"./lib/Digraph":35,"./lib/Graph":36,"./lib/alg/components":37,"./lib/alg/dijkstra":38,"./lib/alg/dijkstraAll":39,"./lib/alg/findCycles":40,"./lib/alg/floydWarshall":41,"./lib/alg/isAcyclic":42,"./lib/alg/postorder":43,"./lib/alg/preorder":44,"./lib/alg/prim":45,"./lib/alg/tarjan":46,"./lib/alg/topsort":47,"./lib/converter/json.js":49,"./lib/filter":50,"./lib/graph-converters":51,"./lib/version":53}],32:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require("cp-data").Set;
 /* jshint +W079 */
@@ -3289,7 +3737,7 @@ function delEdgeFromMap(map, v, e) {
 }
 
 
-},{"cp-data":5}],30:[function(require,module,exports){
+},{"cp-data":26}],33:[function(require,module,exports){
 var Digraph = require("./Digraph"),
     compoundify = require("./compoundify");
 
@@ -3326,7 +3774,7 @@ CDigraph.prototype.toString = function() {
   return "CDigraph " + JSON.stringify(this, null, 2);
 };
 
-},{"./Digraph":32,"./compoundify":45}],31:[function(require,module,exports){
+},{"./Digraph":35,"./compoundify":48}],34:[function(require,module,exports){
 var Graph = require("./Graph"),
     compoundify = require("./compoundify");
 
@@ -3363,7 +3811,7 @@ CGraph.prototype.toString = function() {
   return "CGraph " + JSON.stringify(this, null, 2);
 };
 
-},{"./Graph":33,"./compoundify":45}],32:[function(require,module,exports){
+},{"./Graph":36,"./compoundify":48}],35:[function(require,module,exports){
 /*
  * This file is organized with in the following order:
  *
@@ -3631,7 +4079,7 @@ Digraph.prototype._filterNodes = function(pred) {
 };
 
 
-},{"./BaseGraph":29,"./util":49,"cp-data":5}],33:[function(require,module,exports){
+},{"./BaseGraph":32,"./util":52,"cp-data":26}],36:[function(require,module,exports){
 /*
  * This file is organized with in the following order:
  *
@@ -3766,7 +4214,7 @@ Graph.prototype.delEdge = function(e) {
 };
 
 
-},{"./BaseGraph":29,"./util":49,"cp-data":5}],34:[function(require,module,exports){
+},{"./BaseGraph":32,"./util":52,"cp-data":26}],37:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require("cp-data").Set;
 /* jshint +W079 */
@@ -3809,7 +4257,7 @@ function components(g) {
   return results;
 }
 
-},{"cp-data":5}],35:[function(require,module,exports){
+},{"cp-data":26}],38:[function(require,module,exports){
 var PriorityQueue = require("cp-data").PriorityQueue;
 
 module.exports = dijkstra;
@@ -3889,7 +4337,7 @@ function dijkstra(g, source, weightFunc, incidentFunc) {
   return results;
 }
 
-},{"cp-data":5}],36:[function(require,module,exports){
+},{"cp-data":26}],39:[function(require,module,exports){
 var dijkstra = require("./dijkstra");
 
 module.exports = dijkstraAll;
@@ -3926,7 +4374,7 @@ function dijkstraAll(g, weightFunc, incidentFunc) {
   return results;
 }
 
-},{"./dijkstra":35}],37:[function(require,module,exports){
+},{"./dijkstra":38}],40:[function(require,module,exports){
 var tarjan = require("./tarjan");
 
 module.exports = findCycles;
@@ -3948,7 +4396,7 @@ function findCycles(g) {
   return tarjan(g).filter(function(cmpt) { return cmpt.length > 1; });
 }
 
-},{"./tarjan":43}],38:[function(require,module,exports){
+},{"./tarjan":46}],41:[function(require,module,exports){
 module.exports = floydWarshall;
 
 /**
@@ -4027,7 +4475,7 @@ function floydWarshall(g, weightFunc, incidentFunc) {
   return results;
 }
 
-},{}],39:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 var topsort = require("./topsort");
 
 module.exports = isAcyclic;
@@ -4053,7 +4501,7 @@ function isAcyclic(g) {
   return true;
 }
 
-},{"./topsort":44}],40:[function(require,module,exports){
+},{"./topsort":47}],43:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require("cp-data").Set;
 /* jshint +W079 */
@@ -4080,7 +4528,7 @@ function postorder(g, root, f) {
   dfs(root);
 }
 
-},{"cp-data":5}],41:[function(require,module,exports){
+},{"cp-data":26}],44:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require("cp-data").Set;
 /* jshint +W079 */
@@ -4107,7 +4555,7 @@ function preorder(g, root, f) {
   dfs(root);
 }
 
-},{"cp-data":5}],42:[function(require,module,exports){
+},{"cp-data":26}],45:[function(require,module,exports){
 var Graph = require("../Graph"),
     PriorityQueue = require("cp-data").PriorityQueue;
 
@@ -4178,7 +4626,7 @@ function prim(g, weightFunc) {
   return result;
 }
 
-},{"../Graph":33,"cp-data":5}],43:[function(require,module,exports){
+},{"../Graph":36,"cp-data":26}],46:[function(require,module,exports){
 module.exports = tarjan;
 
 /**
@@ -4246,7 +4694,7 @@ function tarjan(g) {
   return results;
 }
 
-},{}],44:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 module.exports = topsort;
 topsort.CycleException = CycleException;
 
@@ -4304,7 +4752,7 @@ CycleException.prototype.toString = function() {
   return "Graph has at least one cycle";
 };
 
-},{}],45:[function(require,module,exports){
+},{}],48:[function(require,module,exports){
 // This file provides a helper function that mixes-in Dot behavior to an
 // existing graph prototype.
 
@@ -4412,7 +4860,7 @@ function compoundify(SuperConstructor) {
   return Constructor;
 }
 
-},{"cp-data":5}],46:[function(require,module,exports){
+},{"cp-data":26}],49:[function(require,module,exports){
 var Graph = require("../Graph"),
     Digraph = require("../Digraph"),
     CGraph = require("../CGraph"),
@@ -4502,7 +4950,7 @@ function typeOf(obj) {
   return Object.prototype.toString.call(obj).slice(8, -1);
 }
 
-},{"../CDigraph":30,"../CGraph":31,"../Digraph":32,"../Graph":33}],47:[function(require,module,exports){
+},{"../CDigraph":33,"../CGraph":34,"../Digraph":35,"../Graph":36}],50:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require("cp-data").Set;
 /* jshint +W079 */
@@ -4518,7 +4966,7 @@ exports.nodesFromList = function(nodes) {
   };
 };
 
-},{"cp-data":5}],48:[function(require,module,exports){
+},{"cp-data":26}],51:[function(require,module,exports){
 var Graph = require("./Graph"),
     Digraph = require("./Digraph");
 
@@ -4557,7 +5005,7 @@ Digraph.prototype.asUndirected = function() {
   return g;
 };
 
-},{"./Digraph":32,"./Graph":33}],49:[function(require,module,exports){
+},{"./Digraph":35,"./Graph":36}],52:[function(require,module,exports){
 // Returns an array of all values for properties of **o**.
 exports.values = function(o) {
   var ks = Object.keys(o),
@@ -4570,8 +5018,63 @@ exports.values = function(o) {
   return result;
 };
 
-},{}],50:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 module.exports = '0.7.4';
 
+},{}],54:[function(require,module,exports){
+module.exports=require(26)
+},{"./lib/PriorityQueue":55,"./lib/Set":56,"./lib/version":58}],55:[function(require,module,exports){
+module.exports=require(27)
+},{}],56:[function(require,module,exports){
+module.exports=require(28)
+},{"./util":57}],57:[function(require,module,exports){
+module.exports=require(29)
+},{}],58:[function(require,module,exports){
+module.exports=require(30)
+},{}],59:[function(require,module,exports){
+arguments[4][31][0].apply(exports,arguments)
+},{"./lib/CDigraph":61,"./lib/CGraph":62,"./lib/Digraph":63,"./lib/Graph":64,"./lib/alg/components":65,"./lib/alg/dijkstra":66,"./lib/alg/dijkstraAll":67,"./lib/alg/findCycles":68,"./lib/alg/floydWarshall":69,"./lib/alg/isAcyclic":70,"./lib/alg/postorder":71,"./lib/alg/preorder":72,"./lib/alg/prim":73,"./lib/alg/tarjan":74,"./lib/alg/topsort":75,"./lib/converter/json.js":77,"./lib/filter":78,"./lib/graph-converters":79,"./lib/version":81}],60:[function(require,module,exports){
+arguments[4][32][0].apply(exports,arguments)
+},{"cp-data":54}],61:[function(require,module,exports){
+arguments[4][33][0].apply(exports,arguments)
+},{"./Digraph":63,"./compoundify":76}],62:[function(require,module,exports){
+arguments[4][34][0].apply(exports,arguments)
+},{"./Graph":64,"./compoundify":76}],63:[function(require,module,exports){
+arguments[4][35][0].apply(exports,arguments)
+},{"./BaseGraph":60,"./util":80,"cp-data":54}],64:[function(require,module,exports){
+arguments[4][36][0].apply(exports,arguments)
+},{"./BaseGraph":60,"./util":80,"cp-data":54}],65:[function(require,module,exports){
+arguments[4][37][0].apply(exports,arguments)
+},{"cp-data":54}],66:[function(require,module,exports){
+arguments[4][38][0].apply(exports,arguments)
+},{"cp-data":54}],67:[function(require,module,exports){
+arguments[4][39][0].apply(exports,arguments)
+},{"./dijkstra":66}],68:[function(require,module,exports){
+module.exports=require(40)
+},{"./tarjan":74}],69:[function(require,module,exports){
+module.exports=require(41)
+},{}],70:[function(require,module,exports){
+module.exports=require(42)
+},{"./topsort":75}],71:[function(require,module,exports){
+arguments[4][43][0].apply(exports,arguments)
+},{"cp-data":54}],72:[function(require,module,exports){
+arguments[4][44][0].apply(exports,arguments)
+},{"cp-data":54}],73:[function(require,module,exports){
+arguments[4][45][0].apply(exports,arguments)
+},{"../Graph":64,"cp-data":54}],74:[function(require,module,exports){
+module.exports=require(46)
+},{}],75:[function(require,module,exports){
+module.exports=require(47)
+},{}],76:[function(require,module,exports){
+arguments[4][48][0].apply(exports,arguments)
+},{"cp-data":54}],77:[function(require,module,exports){
+arguments[4][49][0].apply(exports,arguments)
+},{"../CDigraph":61,"../CGraph":62,"../Digraph":63,"../Graph":64}],78:[function(require,module,exports){
+arguments[4][50][0].apply(exports,arguments)
+},{"cp-data":54}],79:[function(require,module,exports){
+arguments[4][51][0].apply(exports,arguments)
+},{"./Digraph":63,"./Graph":64}],80:[function(require,module,exports){
+module.exports=require(52)
+},{}],81:[function(require,module,exports){
+module.exports=require(53)
 },{}]},{},[1])
-;
