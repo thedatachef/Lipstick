@@ -53,7 +53,8 @@ module.exports =  {
   Renderer: require('./lib/Renderer'),
   json: require('graphlib').converter.json,
   layout: require('dagre').layout,
-  version: require('./lib/version')
+  version: require('./lib/version'),
+  debug: require('dagre').debug
 };
 
 },{"./lib/Renderer":3,"./lib/version":4,"dagre":5,"graphlib":59}],3:[function(require,module,exports){
@@ -71,9 +72,11 @@ function Renderer() {
   this.drawNodes(defaultDrawNodes);
   this.drawEdgeLabels(defaultDrawEdgeLabels);
   this.drawEdgePaths(defaultDrawEdgePaths);
+  this.drawClusters(defaultDrawClusters);
   this.positionNodes(defaultPositionNodes);
   this.positionEdgeLabels(defaultPositionEdgeLabels);
   this.positionEdgePaths(defaultPositionEdgePaths);
+  this.positionClusters(defaultPositionClusters);
   this.transition(defaultTransition);
   this.postLayout(defaultPostLayout);
   this.postRender(defaultPostRender);
@@ -106,6 +109,12 @@ Renderer.prototype.drawEdgePaths = function(drawEdgePaths) {
   return this;
 };
 
+Renderer.prototype.drawClusters = function(drawClusters) {
+  if (!arguments.length) { return this._drawClusters; }
+  this._drawClusters = bind(drawClusters, this);
+  return this;
+};
+
 Renderer.prototype.positionNodes = function(positionNodes) {
   if (!arguments.length) { return this._positionNodes; }
   this._positionNodes = bind(positionNodes, this);
@@ -121,6 +130,12 @@ Renderer.prototype.positionEdgeLabels = function(positionEdgeLabels) {
 Renderer.prototype.positionEdgePaths = function(positionEdgePaths) {
   if (!arguments.length) { return this._positionEdgePaths; }
   this._positionEdgePaths = bind(positionEdgePaths, this);
+  return this;
+};
+
+Renderer.prototype.positionClusters = function(positionClusters) {
+  if (!arguments.length) { return this._positionClusters; }
+  this._positionClusters = bind(positionClusters, this);
   return this;
 };
 
@@ -161,8 +176,8 @@ Renderer.prototype.run = function(graph, svg) {
 
   // Create layers
   svg
-    .selectAll('g.edgePaths, g.edgeLabels, g.nodes')
-    .data(['edgePaths', 'edgeLabels', 'nodes'])
+    .selectAll('g.clusters, g.edgePaths, g.edgeLabels, g.nodes')
+    .data(['clusters', 'edgePaths', 'edgeLabels', 'nodes'])
     .enter()
       .append('g')
       .attr('class', function(d) { return d; });
@@ -172,6 +187,7 @@ Renderer.prototype.run = function(graph, svg) {
   // information for use with layout.
   var svgNodes = this._drawNodes(graph, svg.select('g.nodes'));
   var svgEdgeLabels = this._drawEdgeLabels(graph, svg.select('g.edgeLabels'));
+  var svgClusters = this._drawClusters(graph, svg.select('g.clusters'));
 
   svgNodes.each(function(u) { calculateDimensions(this, graph.node(u)); });
   svgEdgeLabels.each(function(e) { calculateDimensions(this, graph.edge(e)); });
@@ -188,6 +204,7 @@ Renderer.prototype.run = function(graph, svg) {
   this._positionNodes(result, svgNodes);
   this._positionEdgeLabels(result, svgEdgeLabels);
   this._positionEdgePaths(result, svgEdgePaths);
+  this._positionClusters(result, svgClusters);
 
   this._postRender(result, svg);
 
@@ -283,6 +300,30 @@ function defaultDrawEdgeLabels(g, root) {
   return svgEdgeLabels;
 }
 
+function defaultDrawClusters(g, root) {
+  var clusters = g.nodes().filter(function(u) { return isComposite(g, u); });
+
+  var svgClusters = root
+    .selectAll('g.cluster')
+    .classed('enter', false)
+    .data(clusters, function(u) { return u; });
+
+  svgClustersEnter = svgClusters
+    .enter()
+      .append('g')
+      .attr('class', 'cluster enter');
+
+  svgClustersEnter
+    .append('rect')
+      .style('opacity', 0);
+
+  this._transition(svgClusters.exit())
+      .style('opacity', 0)
+      .remove();
+
+  return svgClusters;
+}
+
 var defaultDrawEdgePaths = function(g, root) {
   var svgEdgePaths = root
     .selectAll('g.edgePath')
@@ -331,6 +372,15 @@ function defaultPositionEdgeLabels(g, svgEdgeLabels) {
   this._transition(svgEdgeLabels)
     .style('opacity', 1)
     .attr('transform', transform);
+}
+
+function defaultPositionClusters(g, svgClusters) {
+  this._transition(svgClusters.selectAll('rect'))
+      .style('opacity', 1)
+      .attr('x', function(u) { return g.node(u).x - g.node(u).width / 2; })
+      .attr('y', function(u) { return g.node(u).y - g.node(u).height / 2; })
+      .attr('width', function(u) { return g.node(u).width; })
+      .attr('height', function(u) { return g.node(u).height; });
 }
 
 function defaultPositionEdgePaths(g, svgEdgePaths) {
@@ -573,7 +623,8 @@ exports.version = require("./lib/version");
 exports.debug = require("./lib/debug");
 
 },{"./lib/debug":7,"./lib/layout":8,"./lib/version":25,"graphlib":31}],6:[function(require,module,exports){
-var Digraph = require('graphlib').Digraph;
+var util = require('./util'),
+    Digraph = require('graphlib').Digraph;
 
 module.exports = addBorderSegments;
 
@@ -591,80 +642,120 @@ module.exports = addBorderSegments;
  * see Sander, "Layout of Compound Directed Graphs", Section 7.
  */
 function addBorderSegments(g) {
-  var cg = new Digraph();
+  var cg = new Digraph(),
+      leftIdGen = util.idGen('_cl'),
+      rightIdGen = util.idGen('_cr');
 
-  function addConstraints(left, vs, right) {
-    cg.addNode(left);
-    cg.addNode(right);
-    cg.addEdge(null, left, right);
-    if (vs) {
-      vs.forEach(function(v) {
-        cg.addNode(v);
-        cg.addEdge(null, left, v);
-        cg.addEdge(null, v, right);
-      });
+  function dfs(u) {
+    var attrs = g.node(u),
+        children = g.children(u);
+    if (!children.length) {
+      cg.addNode(u);
+      return;
     }
-  }
 
-  g.eachNode(function(u, value) {
-    var children = g.children(u);
-    if (children.length) {
-      // First pass, find min, max rank for cluster and capture the rank of
-      // each node so that we can updated the constraint graph.
-      var min = Number.MAX_VALUE,
-          max = Number.MIN_VALUE,
-          rankMap = {},
-          i,
-          prevLeftSeg,
-          leftSeg,
-          prevRightSeg,
-          rightSeg;
-
-      children.forEach(function(v) {
-        var rank = g.node(v).rank,
-            rankEntry = rankMap[rank];
-        min = Math.min(min, rank);
-        max = Math.max(max, rank);
-        if (!rankEntry) {
-          rankEntry = rankMap[rank] = [];
-        }
-        rankEntry.push(v);
-      });
-
-      // Second pass, add left and right border segments from the min rank to
-      // the max rank and update the constraint graph.
-      value.leftBorderSegments = [];
-      value.rightBorderSegments = [];
-
-      for (i = min; i <= max; ++i) {
-        leftSeg = g.addNode(null, { rank: i, width: 0, height: 0, leftBorderSegment: true, dummy: true });
-        rightSeg = g.addNode(null, { rank: i, width: 0, height: 0, rightBorderSegment: true, dummy: true });
-
-        g.parent(leftSeg, u);
-        g.parent(rightSeg, u);
-
-        if (prevLeftSeg !== undefined) {
-          g.addEdge(null, prevLeftSeg, leftSeg, {});
-          g.addEdge(null, prevRightSeg, rightSeg, {});
-        }
-
-        value.leftBorderSegments.push(leftSeg);
-        value.rightBorderSegments.push(rightSeg);
-        addConstraints(leftSeg, rankMap[i], rightSeg);
-
-        prevLeftSeg = leftSeg;
-        prevRightSeg = rightSeg;
+    // Add left and right borders
+    var minRank = attrs.minRank,
+        leftBorder = attrs.leftBorderSegments = [],
+        rightBorder = attrs.rightBorderSegments = [];
+    for (var i = 0, il = attrs.maxRank - minRank + 1; i < il; ++i) {
+      leftBorder[i] = createBorderNode(g, u, minRank + i, 'leftBorderSegment', leftIdGen);
+      rightBorder[i] = createBorderNode(g, u, minRank + i, 'rightBorderSegment', rightIdGen);
+      cg.addNode(leftBorder[i]);
+      cg.addNode(rightBorder[i]);
+      if (i > 0) {
+        g.addEdge(leftIdGen(), leftBorder[i-1], leftBorder[i], {});
+        g.addEdge(rightIdGen(), rightBorder[i-1], rightBorder[i], {});
       }
     }
-  });
+
+    children.forEach(function(v) {
+      var vAttrs = g.node(v);
+
+      dfs(v);
+      
+      if (g.children(v).length) {
+        var vMinRank = vAttrs.minRank;
+        for (var j = 0, jl = vAttrs.maxRank - vMinRank + 1; j < jl; ++j) {
+          cg.addEdge(null, leftBorder[j + vMinRank - minRank], vAttrs.leftBorderSegments[j]);
+          cg.addEdge(null, vAttrs.rightBorderSegments[j], rightBorder[j + vMinRank - minRank]);
+        }
+      } else {
+        cg.addEdge(null, leftBorder[vAttrs.rank - minRank], v);
+        cg.addEdge(null, v, rightBorder[vAttrs.rank - minRank]);
+      }
+    });
+  }
+
+  g.children(null).forEach(dfs);
 
   return cg;
 }
 
-},{"graphlib":31}],7:[function(require,module,exports){
+function createBorderNode(g, parent, rank, type, idGen) {
+  var attrs = {
+    rank: rank,
+    minRank: rank,
+    maxRank: rank,
+    width: 0,
+    height: 0,
+    dummy: true
+  };
+  attrs[type] = true;
+  var u = g.addNode(idGen(), attrs);
+  g.parent(u, parent);
+  return u;
+}
+
+},{"./util":24,"graphlib":31}],7:[function(require,module,exports){
 var util = require('./util');
 
-/**
+/*
+ * Renders a graph in a stringified DOT format that indicates the rank of each
+ * node and the minLen of each edge.
+ */
+exports.dotLayering = function(g) {
+  var result = 'digraph {';
+
+  function dfs(u) {
+    var children = g.children(u),
+        a = g.node(u);
+    if (children.length) {
+      result += 'subgraph "cluster_' + escape(u) + '" {';
+      result += 'label="' + escape(u) + '";';
+      children.forEach(function(v) {
+        dfs(v);
+      });
+      result += '}';
+    } else {
+      result += id(u) + ' [label="' + escape(u) + ', rank=' + a.rank + '"';
+      if (a.dummySegment) {
+        result += ', shape=diamond';
+      } else if (a.rightBorderSegment) {
+        result += ', shape=larrow';
+      } else if (a.leftBorderSegment) {
+        result += ', shape=rarrow';
+      } else if (a.nestingGraphTop) {
+        result += ', shape=invtriangle';
+      } else if (a.nestingGraphBottom) {
+        result += ', shape=triangle';
+      }
+      result += '];';
+    }
+  }
+
+  g.children(null).forEach(dfs);
+
+  g.eachEdge(function(e, u, v, a) {
+    result += id(u) + '->' + id(v) + ' [label="' + escape(e) +', minLen=' + a.minLen + '"];';
+  });
+
+  result += '}';
+
+  return result;
+};
+
+/*
  * Renders a graph in a stringified DOT format that indicates the ordering of
  * nodes by layer. Circles represent normal nodes. Diamons represent dummy
  * nodes. While we try to put nodes in clusters, it appears that graphviz
@@ -678,14 +769,14 @@ exports.dotOrdering = function(g) {
   function dfs(u) {
     var children = g.children(u);
     if (children.length) {
-      result += 'subgraph cluster_' + u + ' {';
-      result += 'label="' + u + '";';
+      result += 'subgraph "cluster_' + escape(u) + '" {';
+      result += 'label="' + escape(u) + '";';
       children.forEach(function(v) {
         dfs(v);
       });
       result += '}';
     } else {
-      result += u;
+      result += id(u);
       if (g.node(u).dummySegment) {
         result += ' [shape=diamond]';
       } else if (g.node(u).rightBorderSegment) {
@@ -705,12 +796,12 @@ exports.dotOrdering = function(g) {
 
   ordering.forEach(function(layer) {
     result += 'subgraph { rank=same; edge [style="invis"];';
-    result += layer.join('->');
+    result += layer.map(id).join('->');
     result += '}';
   });
 
   g.eachEdge(function(e, u, v) {
-    result += u + '->' + v + ';';
+    result += id(u) + '->' + id(v) + ';';
   });
 
   result += '}';
@@ -718,7 +809,7 @@ exports.dotOrdering = function(g) {
   return result;
 };
 
-/**
+/*
  * Renders a graph in a stringified DOT format that indicates the position of
  * of all of the nodes in the graph. This is best used with neato - dot does
  * not appear to respect position information.
@@ -729,7 +820,7 @@ exports.dotPositioning = function(g) {
 
   g.eachNode(function(u, attrs) {
     if (!g.children(u).length) {
-      result += u + ' [pos="' + (attrs.x * scale) + ',' + (-attrs.y * scale) + '!"';
+      result += id(u) + ' [pos="' + (attrs.x * scale) + ',' + (-attrs.y * scale) + '!"';
       if (attrs.dummySegment) {
         result += ', shape=diamond';
       } else if (attrs.rightBorderSegment) {
@@ -741,18 +832,26 @@ exports.dotPositioning = function(g) {
       } else if (attrs.nestingGraphBottom) {
         result += ', shape=triangle';
       }
-      result += ', label="' + u + ' ' + attrs.x + ',' + attrs.y + '"];';
+      result += ', label="' + escape(u) + ' ' + attrs.x + ',' + attrs.y + '"];';
     }
   });
 
   g.eachEdge(function(e, u, v) {
-    result += u + '->' + v + ' [label="' + e +'"];';
+    result += id(u) + '->' + id(v) + ' [label="' + escape(e) +'"];';
   });
 
   result += '}';
 
   return result;
 };
+
+function id(str) {
+  return '"' + escape(str) + '"';
+}
+
+function escape(str) {
+  return str.replace(/"/g, '\\"');
+}
 
 },{"./util":24}],8:[function(require,module,exports){
 var util = require('./util'),
@@ -930,29 +1029,23 @@ module.exports = function() {
     function dfs(u) {
       if (g.children(u).length) {
         var value = g.node(u),
-            topY = g.node(value.borderNodeTop).y,
-            bottomY = g.node(value.borderNodeBottom).y,
-            leftX,
-            rightX;
+            leftBorderNodes = value.leftBorderSegments,
+            rightBorderNodes = value.rightBorderSegments,
+            upperLeft = g.node(leftBorderNodes[0]),
+            lowerRight = g.node(rightBorderNodes[rightBorderNodes.length - 1]),
+            topY = upperLeft.y,
+            bottomY = lowerRight.y,
+            leftX = upperLeft.x,
+            rightX = lowerRight.x;
 
         g.delNode(value.borderNodeTop);
         delete value.borderNodeTop;
         g.delNode(value.borderNodeBottom);
         delete value.borderNodeBottom;
 
-        value.leftBorderSegments.forEach(function(v) {
-          // TODO: investigate bug with positioning....
-          leftX = leftX === undefined ? g.node(v).x : Math.min(g.node(v).x, leftX);
-          g.delNode(v);
-        });
-
-        value.rightBorderSegments.forEach(function(v) {
-          // TODO: investigate bug with positioning....
-          rightX = rightX === undefined ? g.node(v).x : Math.max(g.node(v).x, rightX);
-          g.delNode(v);
-        });
-
+        leftBorderNodes.forEach(function(v) { g.delNode(v); });
         delete value.leftBorderSegments;
+        rightBorderNodes.forEach(function(v) { g.delNode(v); });
         delete value.rightBorderSegments;
 
         value.height = Math.abs(topY - bottomY);
@@ -1008,6 +1101,8 @@ module.exports = function() {
 
 
 },{"./addBorderSegments":6,"./normalize":9,"./order":10,"./position":15,"./rank":16,"./util":24,"graphlib":31}],9:[function(require,module,exports){
+var util = require('./util');
+
 module.exports = normalize;
 module.exports.undo = undoNormalize;
 
@@ -1021,7 +1116,8 @@ module.exports.undo = undoNormalize;
  * This method assumes that the input graph is cycle free.
  */
 function normalize(g) {
-  var dummyCount = 0;
+  var idGen = util.idGen('_d');
+
   g.eachEdge(function(e, s, t, a) {
     var
         // The rank of the source and target of the edge, held constant over
@@ -1030,7 +1126,7 @@ function normalize(g) {
         targetRank = g.node(t).rank,
 
         // The lowest common ancestor for s and t
-        lca = findLCA(g, s, t),
+        lca = util.findLCA(g, s, t),
 
         // The id of the current node
         u = s,
@@ -1046,12 +1142,14 @@ function normalize(g) {
 
     if (sourceRank + 1 < targetRank) {
       for (rank = sourceRank + 1; rank < targetRank; ++rank) {
-        v = '_D' + (++dummyCount);
+        v = idGen();
         node = {
           width: a.width,
           height: a.height,
           edge: { id: e, source: s, target: t, attrs: a },
           rank: rank,
+          minRank: rank,
+          maxRank: rank,
           dummySegment: true,
           dummy: true
         };
@@ -1075,31 +1173,13 @@ function normalize(g) {
           }
         }
 
-        g.addEdge(null, u, v, {});
+        g.addEdge(idGen(), u, v, {});
         u = v;
       }
-      g.addEdge(null, u, t, {});
+      g.addEdge(idGen(), u, t, {});
       g.delEdge(e);
     }
   });
-}
-
-/*
- * Returns the lowest common ancestor of nodes u and v in the nesting tree of
- * graph g.
- */
-function findLCA(g, u, v) {
-  var visited = {};
-  while (u !== null && v !== null) {
-    if (visited[u]) return u;
-    visited[u] = true;
-    u = g.parent(u);
-
-    if (visited[v]) return v;
-    visited[v] = true;
-    v = g.parent(v);
-  }
-  return null;
 }
 
 /*
@@ -1124,7 +1204,7 @@ function undoNormalize(g) {
 }
 
 
-},{}],10:[function(require,module,exports){
+},{"./util":24}],10:[function(require,module,exports){
 var util = require('./util'),
     crossCount = require('./order/crossCount'),
     initLayerGraphs = require('./order/initLayerGraphs'),
@@ -1154,6 +1234,7 @@ function order(g, maxSweeps, cg) {
   var restarts = g.graph().orderRestarts || 0;
 
   var layerGraphs = initLayerGraphs(g);
+
   // TODO: remove this when we add back support for ordering clusters
   layerGraphs.forEach(function(lg) {
     lg = lg.filterNodes(function(u) { return !g.children(u).length; });
@@ -1299,9 +1380,8 @@ function twoLayerCrossCount(g, layer1, layer2) {
 }
 
 },{"../util":24}],12:[function(require,module,exports){
-var nodesFromList = require('graphlib').filter.nodesFromList,
-    /* jshint -W079 */
-    Set = require('cp-data').Set;
+var util = require('../util'),
+    nodesFromList = require('graphlib').filter.nodesFromList;
 
 module.exports = initLayerGraphs;
 
@@ -1309,47 +1389,41 @@ module.exports = initLayerGraphs;
  * This function takes a compound layered graph, g, and produces an array of
  * layer graphs. Each entry in the array represents a subgraph of nodes
  * relevant for performing crossing reduction on that layer.
+ *
+ * Pre-conditions:
+ *
+ *    * The input graph must have the `maxRank` attribute
+ *    * All nodes in the input graph must have `minRank` and `maxRank` attributes.
  */
 function initLayerGraphs(g) {
-  var ranks = [];
+  var ranks = [],
+      maxRank = util.max(g.children(null).map(function(u) { return g.node(u).maxRank; }));
 
-  function dfs(u) {
-    if (u === null) {
-      g.children(u).forEach(function(v) { dfs(v); });
-      return;
-    }
-
-    var value = g.node(u);
-    value.minRank = ('rank' in value) ? value.rank : Number.MAX_VALUE;
-    value.maxRank = ('rank' in value) ? value.rank : Number.MIN_VALUE;
-    var uRanks = new Set();
-    g.children(u).forEach(function(v) {
-      var rs = dfs(v);
-      uRanks = Set.union([uRanks, rs]);
-      value.minRank = Math.min(value.minRank, g.node(v).minRank);
-      value.maxRank = Math.max(value.maxRank, g.node(v).maxRank);
-    });
-
-    if ('rank' in value) uRanks.add(value.rank);
-
-    uRanks.keys().forEach(function(r) {
-      if (!(r in ranks)) ranks[r] = [];
-      ranks[r].push(u);
-    });
-
-    return uRanks;
+  if (maxRank === undefined || util.isNaN(maxRank)) {
+    throw new Error('At least one node in the input graph is missing a maxRank assignment');
   }
-  dfs(null);
 
-  var layerGraphs = [];
-  ranks.forEach(function(us, rank) {
-    layerGraphs[rank] = g.filterNodes(nodesFromList(us));
+  for (var i = 0; i <= maxRank; ++i) {
+    ranks[i] = [];
+  }
+
+  g.eachNode(function(u, a) {
+    if (g.children(u).length) return;
+    for (var i = a.minRank, il = a.maxRank; i <= il; ++i) {
+      ranks[i].push(u);
+      var parent = g.parent(u);
+      // TODO: for deeply nested graphs it may be more efficient to use a Set.
+      while (parent !== null) {
+        ranks[i].push(parent);
+        parent = g.parent(parent);
+      }
+    }
   });
 
-  return layerGraphs;
+  return ranks.map(function(us) { return g.filterNodes(nodesFromList(us)); });
 }
 
-},{"cp-data":26,"graphlib":31}],13:[function(require,module,exports){
+},{"../util":24,"graphlib":31}],13:[function(require,module,exports){
 var crossCount = require('./crossCount'),
     PriorityQueue = require('cp-data').PriorityQueue;
     util = require('../util');
@@ -1974,8 +2048,12 @@ module.exports = function() {
     if (config.universalSep !== null) {
       return config.universalSep;
     }
+    var attrs = g.node(u);
     var w = width(g, u);
-    var s = g.node(u).dummy ? config.edgeSep : config.nodeSep;
+    var s = config.nodeSep;
+    if (attrs.dummy) {
+      s = (attrs.borderNodeTop || attrs.borderNodeBottom) ? 0 : config.edgeSep;
+    }
     return (w + s) / 2;
   }
 
@@ -2054,6 +2132,7 @@ var util = require('./util'),
     nestingGraph = require('./rank/nestingGraph'),
     simplex = require('./rank/simplex'),
     components = require('graphlib').alg.components,
+    topsort = require('graphlib').alg.topsort,
     filter = require('graphlib').filter;
 
 exports.run = run;
@@ -2064,9 +2143,24 @@ exports.restoreEdges = restoreEdges;
  * the intent of minimizing edge lengths, while respecting the `minLen`
  * attribute of incident edges.
  *
- * Prerequisites:
+ * Pre-conditions:
  *
  *  * Each edge in the input graph must have an assigned 'minLen' attribute
+ *
+ * Post-conditions:
+ *
+ *  * Each node will have assigned `rank`, `minRank`, and `maxRank` attributes.
+ *    For simple nodes `rank = minRank = maxRank`. For composite nodes
+ *    `minRank` is the minimum rank for any node that is a descedant of the
+ *    node and similarly `maxRank` is the maximum rank. The inequality
+ *    `minRank <= rank <= maxRank` will always hold.
+ *  * Composite nodes will have assigned `borderNodeTop` and `borderNodeBottom`
+ *    attributes, where `borderNodeTop` is a node at the top of the subgraph
+ *    (its rank is equal to `minRank`) and `borderNodeBottom` is the bottom
+ *    node of the subgraph.
+ *  * The graph will be assigned an attribute `maxRank` that indicates the last
+ *    rank assigned to any node in the graph. Ranks are assumed to start from
+ *    rank 0, so there is no `minRank` attribute.
  */
 function run(g, useSimplex) {
   expandSelfLoops(g);
@@ -2111,6 +2205,12 @@ function run(g, useSimplex) {
 
   // Remove empty layers which may have been introduced by the nesting graph.
   util.time('nestingGraph.removeEmptyLayers', nestingGraph.removeEmptyLayers)(g);
+
+  // Normalize ranks
+  normalizeRanks(g);
+
+  // Assign min and max ranks to all nodes
+  assignMinMaxRanks(g);
 }
 
 function restoreEdges(g) {
@@ -2132,34 +2232,41 @@ function restoreEdges(g) {
  * TODO: support minLen = 2
  */
 function expandSelfLoops(g) {
+  var idGen = util.idGen('_sl');
   g.eachEdge(function(e, u, v, a) {
     if (u === v) {
-      var x = addDummyNode(g, e, u, v, a, 0, false),
-          y = addDummyNode(g, e, u, v, a, 1, true),
-          z = addDummyNode(g, e, u, v, a, 2, false);
-      g.addEdge(null, x, u, {minLen: 1, selfLoop: true});
-      g.addEdge(null, x, y, {minLen: 1, selfLoop: true});
-      g.addEdge(null, u, z, {minLen: 1, selfLoop: true});
-      g.addEdge(null, y, z, {minLen: 1, selfLoop: true});
+      var x = addDummyNode(g, e, u, v, a, 0, false, idGen),
+          y = addDummyNode(g, e, u, v, a, 1, true, idGen),
+          z = addDummyNode(g, e, u, v, a, 2, false, idGen),
+          parent = g.parent(u);
+      g.parent(x, parent);
+      g.parent(y, parent);
+      g.parent(z, parent);
+      g.addEdge(idGen(), x, u, {minLen: 1, selfLoop: true});
+      g.addEdge(idGen(), x, y, {minLen: 1, selfLoop: true});
+      g.addEdge(idGen(), u, z, {minLen: 1, selfLoop: true});
+      g.addEdge(idGen(), y, z, {minLen: 1, selfLoop: true});
       g.delEdge(e);
     }
   });
 }
 
 function expandSidewaysEdges(g) {
+  var idGen = util.idGen('_se');
   g.eachEdge(function(e, u, v, a) {
     if (u === v) {
       var origEdge = a.originalEdge,
-          dummy = addDummyNode(g, origEdge.e, origEdge.u, origEdge.v, origEdge.value, 0, true);
-      g.addEdge(null, u, dummy, {minLen: 1});
-      g.addEdge(null, dummy, v, {minLen: 1});
+          dummy = addDummyNode(g, origEdge.e, origEdge.u, origEdge.v, origEdge.value, 0, true, idGen);
+      g.parent(dummy, g.parent(u));
+      g.addEdge(idGen(), u, dummy, {minLen: 1});
+      g.addEdge(idGen(), dummy, v, {minLen: 1});
       g.delEdge(e);
     }
   });
 }
 
-function addDummyNode(g, e, u, v, a, index, isLabel) {
-  return g.addNode(null, {
+function addDummyNode(g, e, u, v, a, index, isLabel, idGen) {
+  return g.addNode(idGen(), {
     width: isLabel ? a.width : 0,
     height: isLabel ? a.height : 0,
     edge: { id: e, source: u, target: v, attrs: a },
@@ -2186,12 +2293,52 @@ function rankComponent(subgraph, useSimplex) {
     util.log(1, 'Using network simplex for ranking');
     simplex(subgraph, spanningTree);
   }
-  normalize(subgraph);
+
+  // Correct top border nodes
+  var nodes = topsort(subgraph),
+      u,
+      attrs;
+
+  function rank(v) { return subgraph.node(v).rank; }
+
+  for (var i = nodes.length - 1; i >= 0; --i) {
+    u = nodes[i];
+    attrs = subgraph.node(u);
+    if (attrs.nestingGraphTop) {
+      attrs.rank = util.min(subgraph.successors(u).map(rank)) - 1;
+    }
+  }
 }
 
-function normalize(g) {
-  var m = util.min(g.nodes().map(function(u) { return g.node(u).rank; }));
-  g.eachNode(function(u, node) { node.rank -= m; });
+function normalizeRanks(g) {
+  var simpleNodes = g.nodes().filter(function(u) { return !g.children(u).length; });
+  var m = util.min(simpleNodes.map(function(u) { return g.node(u).rank; }));
+  simpleNodes.forEach(function(u) {
+    g.node(u).rank -= m;
+  });
+}
+
+function assignMinMaxRanks(g) {
+  // Post-order traversal ensures that we can bubble up min and max ranks.
+  var maxRank = 0;
+  function dfs(u) {
+    var children = g.children(u),
+        attrs = g.node(u);
+    if (!children.length) {
+      attrs.minRank = attrs.maxRank = attrs.rank;
+    } else {
+      attrs.minRank = Number.MAX_VALUE;
+      attrs.maxRank = 0;
+      children.forEach(function(v) {
+        dfs(v);
+        attrs.minRank = Math.min(attrs.minRank, g.node(v).minRank);
+        attrs.maxRank = Math.max(attrs.maxRank, g.node(v).maxRank);
+      });
+    }
+    maxRank = Math.max(maxRank, attrs.maxRank);
+  }
+  g.children(null).forEach(dfs);
+  g.graph().maxRank = maxRank;
 }
 
 },{"./rank/acyclic":17,"./rank/constraints":18,"./rank/feasibleTree":19,"./rank/initRank":20,"./rank/nestingGraph":21,"./rank/simplex":23,"./util":24,"graphlib":31}],17:[function(require,module,exports){
@@ -2258,7 +2405,11 @@ function undo(g) {
 }
 
 },{"../util":24}],18:[function(require,module,exports){
+var util = require('../util');
+
 exports.apply = function(g) {
+  var idGen = util.idGen('_rc');
+
   function dfs(sg) {
     var rankSets = {};
     g.children(sg).forEach(function(u) {
@@ -2280,12 +2431,12 @@ exports.apply = function(g) {
 
         var newU = rankSets[prefRank];
         if (newU === undefined) {
-          newU = rankSets[prefRank] = g.addNode(null, { originalNodes: [] });
+          newU = rankSets[prefRank] = g.addNode(idGen(), { originalNodes: [] });
           g.parent(newU, sg);
         }
 
-        redirectInEdges(g, u, newU, prefRank === 'min');
-        redirectOutEdges(g, u, newU, prefRank === 'max');
+        redirectInEdges(g, u, newU, prefRank === 'min', idGen);
+        redirectOutEdges(g, u, newU, prefRank === 'max', idGen);
 
         // Save original node and remove it from reduced graph
         g.node(newU).originalNodes.push({ u: u, value: value, parent: sg });
@@ -2293,8 +2444,8 @@ exports.apply = function(g) {
       }
     });
 
-    addLightEdgesFromMinNode(g, sg, rankSets.min);
-    addLightEdgesToMaxNode(g, sg, rankSets.max);
+    addLightEdgesFromMinNode(g, sg, rankSets.min, idGen);
+    addLightEdgesToMaxNode(g, sg, rankSets.max, idGen);
   }
 
   dfs(null);
@@ -2308,7 +2459,7 @@ function checkSupportedPrefRank(prefRank) {
   return true;
 }
 
-function redirectInEdges(g, u, newU, reverse) {
+function redirectInEdges(g, u, newU, reverse, idGen) {
   g.inEdges(u).forEach(function(e) {
     var origValue = g.edge(e),
         value;
@@ -2328,15 +2479,15 @@ function redirectInEdges(g, u, newU, reverse) {
 
     if (reverse) {
       // Ensure that all edges to min are reversed
-      g.addEdge(null, newU, g.source(e), value);
+      g.addEdge(idGen(), newU, g.source(e), value);
       value.reversed = true;
     } else {
-      g.addEdge(null, g.source(e), newU, value);
+      g.addEdge(idGen(), g.source(e), newU, value);
     }
   });
 }
 
-function redirectOutEdges(g, u, newU, reverse) {
+function redirectOutEdges(g, u, newU, reverse, idGen) {
   g.outEdges(u).forEach(function(e) {
     var origValue = g.edge(e),
         value;
@@ -2356,33 +2507,33 @@ function redirectOutEdges(g, u, newU, reverse) {
 
     if (reverse) {
       // Ensure that all edges from max are reversed
-      g.addEdge(null, g.target(e), newU, value);
+      g.addEdge(idGen(), g.target(e), newU, value);
       value.reversed = true;
     } else {
-      g.addEdge(null, newU, g.target(e), value);
+      g.addEdge(idGen(), newU, g.target(e), value);
     }
   });
 }
 
-function addLightEdgesFromMinNode(g, sg, minNode) {
+function addLightEdgesFromMinNode(g, sg, minNode, idGen) {
   if (minNode !== undefined) {
     g.children(sg).forEach(function(u) {
       // The dummy check ensures we don't add an edge if the node is involved
       // in a self loop or sideways edge.
       if (u !== minNode && !g.outEdges(minNode, u).length && !g.node(u).dummy) {
-        g.addEdge(null, minNode, u, { minLen: 0 });
+        g.addEdge(idGen(), minNode, u, { minLen: 0 });
       }
     });
   }
 }
 
-function addLightEdgesToMaxNode(g, sg, maxNode) {
+function addLightEdgesToMaxNode(g, sg, maxNode, idGen) {
   if (maxNode !== undefined) {
     g.children(sg).forEach(function(u) {
       // The dummy check ensures we don't add an edge if the node is involved
       // in a self loop or sideways edge.
       if (u !== maxNode && !g.outEdges(u, maxNode).length && !g.node(u).dummy) {
-        g.addEdge(null, u, maxNode, { minLen: 0 });
+        g.addEdge(idGen(), u, maxNode, { minLen: 0 });
       }
     });
   }
@@ -2426,7 +2577,7 @@ exports.relax = function(g) {
   });
 };
 
-},{}],19:[function(require,module,exports){
+},{"../util":24}],19:[function(require,module,exports){
 /* jshint -W079 */
 var Set = require('cp-data').Set,
 /* jshint +W079 */
@@ -2584,6 +2735,8 @@ function initRank(g) {
 }
 
 },{"../util":24,"graphlib":31}],21:[function(require,module,exports){
+var util = require('../util');
+
 exports.augment = augment;
 exports.removeEdges = removeEdges;
 exports.removeEmptyLayers = removeEmptyLayers;
@@ -2609,7 +2762,9 @@ exports.removeEmptyLayers = removeEmptyLayers;
  * are never at the same level.
  */
 function augment(g) {
-  var height = treeHeight(g) - 1;
+  var height = treeHeight(g) - 1,
+      topIdGen = util.idGen('_ct'),
+      bottomIdGen = util.idGen('_cb');
 
   g.eachEdge(function(e, u, v, value) {
     value.minLen *= 2 * height + 1;
@@ -2621,23 +2776,34 @@ function augment(g) {
     if (children.length) {
       children.forEach(function(v) { dfs(v); });
 
-      // Add a top and bottom border for clusters (except the root graph)
+      var value;
       if (u !== null) {
-        var top = g.addNode(null, { width: 0, height: 0, nestingGraphTop: true }),
-            bottom = g.addNode(null, { width: 0, height: 0, nestingGraphBottom: true }),
-            value = g.node(u),
-            depth = value.treeDepth;
-        g.parent(top, u);
-        g.parent(bottom, u);
-        value.borderNodeTop = top;
-        value.borderNodeBottom = bottom;
-
-        children.forEach(function(v) {
-          var minLen = g.children(v).length ? 1 : height - depth + 1;
-          g.addEdge(null, top, v, { minLen: minLen, nestingEdge: true });
-          g.addEdge(null, v, bottom, { minLen: minLen, nestingEdge: true });
-        });
+        value = g.node(u);
+      } else {
+        value = g.graph();
       }
+
+      var depth = u === null ? -1 : value.treeDepth,
+          top = g.addNode(topIdGen(), { width: 0, height: 0, nestingGraphTop: true, dummy: true }),
+          bottom = g.addNode(bottomIdGen(), { width: 0, height: 0, nestingGraphBottom: true, dummy: true });
+      g.parent(top, u);
+      g.parent(bottom, u);
+      value.borderNodeTop = top;
+      value.borderNodeBottom = bottom;
+
+      children.forEach(function(v) {
+        var minLen = height - depth + 1,
+            childTop = v,
+            childBottom = v;
+        if (g.children(v).length) {
+          minLen = u === null ? height + g.node(v).treeDepth : 1;
+          childTop = g.node(v).borderNodeTop;
+          childBottom = g.node(v).borderNodeBottom;
+        }
+
+        g.addEdge(topIdGen(), top, childTop, { minLen: minLen, nestingEdge: true });
+        g.addEdge(bottomIdGen(), childBottom, bottom, { minLen: minLen, nestingEdge: true });
+      });
     }
   }
 
@@ -2654,6 +2820,8 @@ function removeEdges(g) {
       g.delEdge(e);
     }
   });
+  g.delNode(g.graph().borderNodeTop);
+  g.delNode(g.graph().borderNodeBottom);
 }
 
 function removeEmptyLayers(g) {
@@ -2701,7 +2869,7 @@ function treeHeight(g) {
   return dfs(null, 0);
 }
 
-},{}],22:[function(require,module,exports){
+},{"../util":24}],22:[function(require,module,exports){
 module.exports = {
   slack: slack
 };
@@ -3114,6 +3282,60 @@ exports.filterNonSubgraphs = function(g) {
     return g.children(u).length === 0;
   };
 };
+
+/*
+ * Returns the lowest common ancestor of nodes u and v in the nesting tree of
+ * graph g. If u === v this finds the parent of u.
+ */
+exports.findLCA = function(g, u, v) {
+  var visited = {};
+  u = g.parent(u);
+  v = g.parent(v);
+  while (u !== null || v !== null) {
+    if (u !== null) {
+      if (visited[u]) return u;
+      visited[u] = true;
+      u = g.parent(u);
+    }
+
+    if (v !== null) {
+      if (visited[v]) return v;
+      visited[v] = true;
+      v = g.parent(v);
+    }
+  }
+  return null;
+};
+
+/*
+ * A function that returns an id generator that generates a new id on each
+ * invocation. Each id is prefixed by the supplied prefix. Provided this
+ * generator is the only code that uses that prefix, the id can be safely
+ * assumed to be unique.
+ *
+ * Reserved prefixes:
+ *
+ *   * _d: dummy node or edge
+ *   * _rc: node used to enforce rank constraints
+ *   * _sl: self loop dummy node or edge
+ *   * _se: sideways edge dummy node or edge
+ *   * _ct: cluster top node or edge from top node
+ *   * _cb: cluster bottom node or edge from bottom node
+ *   * _cl: cluster left node or left segment
+ *   * _cr: cluster right node or right segment
+ */
+exports.idGen = function(prefix) {
+  var counter = 0;
+  return function() {
+    return prefix + '-' + (counter++);
+  };
+};
+
+/*
+ * Work around broken isNaN implementation. This approach comes from the ES6
+ * docs.
+ */
+exports.isNaN = function(x) { return x !== x; };
 
 /*
  * Returns a new function that wraps `func` with a timer. The wrapper logs the
