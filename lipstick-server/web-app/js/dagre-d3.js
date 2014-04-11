@@ -1555,7 +1555,7 @@ function sortLayerSubgraph(g, sg, cg, weights) {
 function mergeNodeData(g, lhs, rhs) {
   var cg = mergeDigraphs(lhs.constraintGraph, rhs.constraintGraph);
 
-  if (lhs.lastSG !== undefined && rhs.firstSG !== undefined) {
+  if (lhs.lastSG !== undefined && rhs.firstSG !== undefined && (lhs.lastSG !== lhs.firstSG) && (rhs.lastSG !== rhs.firstSG)) {
     if (cg === undefined) {
       cg = new Digraph();
     }
