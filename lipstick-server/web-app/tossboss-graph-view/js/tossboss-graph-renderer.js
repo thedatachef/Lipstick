@@ -33,49 +33,30 @@
         
         var margin = 40;
         var g = graphData.graph;
-        var layout = dagreD3.layout();
-        var renderer = new dagreD3.Renderer().layout(layout);
+        var renderer = new dagreD3.Renderer();
         var oldDrawEdges = renderer.drawEdgePaths();
-        var oldPostRender = renderer.postRender();
+        var oldDrawClusters = renderer.drawClusters();
 
         renderer.drawNodes(function(graph, root) {
-            var subGraphs = graph.children(null);
 
-            var nodeGroups = root.selectAll('g.cluster')
-                .data(subGraphs, function (sg) { return sg; });
+            var nodes = graph.nodes().filter(function(u) {return !('children' in g && g.children(u).length)});
 
-            // Remove any existing cluster data
-            nodeGroups.selectAll('*').remove();
-            nodeGroups
+            var svgNodes = root
+                .selectAll('g.node')
+                .data(nodes, function(u) { return u; });
+          
+            svgNodes.selectAll('*').remove();
+          
+            svgNodes
                 .enter()
                 .append('g')
-                .classed('cluster', true);
+                .attr('class', 'node');
 
-            nodeGroups.each(function (sg) {
-
-                var nodes = graph.nodes().filter(function(u) { return graph.parent(u) === sg; });
-
-                var cluster = d3.select(this);
-                var svgNodes = cluster
-                    .selectAll('g.node')
-                    .data(nodes, function(u) { return u; });
-          
-                svgNodes.selectAll('*').remove();
-          
-                svgNodes
-                    .enter()
-                    .append('g')
-                    .attr('class', 'node');
-
-                // Might be a performance hit to send whole viewmodel each time
-                svgNodes.each(function(u) { GraphRenderer.addLabel(graph.node(u), d3.select(this), graphData.viewModel); });
-                svgNodes.attr('id', function(u) { return u; });
-            });
-            
-            var svgNodes = root.selectAll('g.node');
+            svgNodes.each(function(u) { GraphRenderer.addLabel(graph.node(u), d3.select(this), graphData.viewModel); });
+            svgNodes.attr('id', function(u) { return u; });
             return svgNodes;
         });
-
+            
         renderer.drawEdgePaths(function (graph, root) {
             var edgePaths = oldDrawEdges(graph, root);
             edgePaths.attr('id', function(edge, idx) { return "edge"+idx; });
@@ -108,62 +89,34 @@
         
             return svgEdgeLabels;
         });
-        
-        renderer.postRender(function (graph, root) {
-            var subGraphs = graph.children(null); 
-            var nodes = graph.nodes();
+
+        renderer.drawClusters(function (graph, root) {
+            var svgClusters = oldDrawClusters(graph, root);
             
-            var clusters = root.selectAll('g.cluster');
-            clusters.each(function (sg) {
-                var cluster = d3.select(this);
-                var bbox = cluster.node().getBBox();
-        
-                cluster
-                    .attr('id', sg)
-                    .attr('data-bind',
-                      'attr {class: clusters[\''+sg+'\'].css},'+
-                      'click: clickedCluster,' +
-                      'clickBubble: false, '+
-                      'event: { mouseover: mouseEnterCluster, mouseout: mouseLeaveCluster }'
-                     )
-                    .append('title')
-                    .text(sg.split('-')[1]);
-                
-                cluster
-                    .insert('rect', ':first-child')                    
-                    .attr('x', bbox.x-margin/2)
-                    .attr('y', bbox.y-margin/2)
-                    .attr('width', bbox.width+margin)
-                    .attr('height', bbox.height+margin);
-        
-            });
-                                
-            d3.selection.prototype.moveToFront = function() {
-                return this.each(function(){
-                    this.parentNode.appendChild(this);
-                });
-            };
-            
-            var svgEdgeLabels = svg.select('g.edgeLabels');
-            var svgEdgePaths = svg.select('g.edgePaths');
-            svgEdgePaths.moveToFront();
-            svgEdgeLabels.moveToFront();
-            
-            oldPostRender(graph, root);            
+            svgClusters
+                .attr('id', function(sg) { return sg; })
+                .attr('data-bind', function(sg) {
+                      return 'attr {class: clusters[\''+sg+'\'].css},'+
+                             'click: clickedCluster,' +
+                             'clickBubble: false, '+
+                             'event: { mouseover: mouseEnterCluster, mouseout: mouseLeaveCluster }'
+                })
+                .append('title')
+                .text(function(sg) { return sg.split('-')[1]; } );
+            return svgClusters;
         });
 
         var pigGraph = d3.select('#pig-graph');
         pigGraph.selectAll('*').remove();
         
         var svg = pigGraph.append('svg');
-        renderer.edgeInterpolate('linear');
         renderer.run(g, svg.append('g'));
 
         var bbox = svg.node().getBBox();
         
         svg
             .attr('width', bbox.width+0.1*bbox.width)
-            .attr('height', bbox.height+0.1*bbox.height)
+            .attr('height', bbox.height+0.1*bbox.height);
             
         svg.select('g').attr('transform', 'translate('+0+','+0.01*bbox.height+')');
 

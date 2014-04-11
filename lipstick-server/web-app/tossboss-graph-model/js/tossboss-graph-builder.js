@@ -68,7 +68,7 @@
                 } else {
                     join = self.data.group;
                 }
-                colspan = join.expression.length;
+                colspan = Object.keys(join.expression).length;
             }
             return colspan ? colspan : "2";
         });
@@ -398,7 +398,7 @@
                 subGraph.eachNode(function(u, value) {
                     // Set cluster id
                     self.graph.parent(u, key);
-
+            
                     // Append actual predecessor nodes
                     var node = self.node(u);
                     node.predecessors(self.predecessors(u));
