@@ -642,52 +642,45 @@ module.exports = addBorderSegments;
  * see Sander, "Layout of Compound Directed Graphs", Section 7.
  */
 function addBorderSegments(g) {
-  var cg = new Digraph(),
-      leftIdGen = util.idGen('_cl'),
-      rightIdGen = util.idGen('_cr');
+  var cg = new Digraph();
 
-  function dfs(u) {
-    var attrs = g.node(u),
-        children = g.children(u);
-    if (!children.length) {
-      cg.addNode(u);
-      return;
-    }
+  g.eachNode(function(u) { cg.addNode(u); });
 
-    // Add left and right borders
-    var minRank = attrs.minRank,
-        leftBorder = attrs.leftBorderSegments = [],
-        rightBorder = attrs.rightBorderSegments = [];
-    for (var i = 0, il = attrs.maxRank - minRank + 1; i < il; ++i) {
-      leftBorder[i] = createBorderNode(g, u, minRank + i, 'leftBorderSegment', leftIdGen);
-      rightBorder[i] = createBorderNode(g, u, minRank + i, 'rightBorderSegment', rightIdGen);
-      cg.addNode(leftBorder[i]);
-      cg.addNode(rightBorder[i]);
-      if (i > 0) {
-        g.addEdge(leftIdGen(), leftBorder[i-1], leftBorder[i], {});
-        g.addEdge(rightIdGen(), rightBorder[i-1], rightBorder[i], {});
-      }
-    }
+  g.eachNode(function(u, attrs) {
+    var children = g.children(u);
+    if (children.length) {
+      var leftIdGen = util.idGen('_cl-' + u),
+          rightIdGen = util.idGen('_cr-' + u),
+          leftBorderSegments = attrs.leftBorderSegments = [],
+          rightBorderSegments = attrs.rightBorderSegments = [],
+          leftBorder,
+          rightBorder;
+      for (var i = attrs.minRank, il = attrs.maxRank, j = 0; i <= il; ++i, ++j) {
+        leftBorderSegments[j] = leftBorder =
+            createBorderNode(g, u, i, 'leftBorderSegment', leftIdGen);
+        cg.addNode(leftBorder);
 
-    children.forEach(function(v) {
-      var vAttrs = g.node(v);
+        rightBorderSegments[j] = rightBorder =
+            createBorderNode(g, u, i, 'rightBorderSegment', rightIdGen);
+        cg.addNode(rightBorder);
 
-      dfs(v);
-      
-      if (g.children(v).length) {
-        var vMinRank = vAttrs.minRank;
-        for (var j = 0, jl = vAttrs.maxRank - vMinRank + 1; j < jl; ++j) {
-          cg.addEdge(null, leftBorder[j + vMinRank - minRank], vAttrs.leftBorderSegments[j]);
-          cg.addEdge(null, vAttrs.rightBorderSegments[j], rightBorder[j + vMinRank - minRank]);
+        if (j > 0) {
+          g.addEdge(leftIdGen(), leftBorderSegments[j-1], leftBorder, {});
+          g.addEdge(rightIdGen(), rightBorderSegments[j-1], rightBorder, {});
         }
-      } else {
-        cg.addEdge(null, leftBorder[vAttrs.rank - minRank], v);
-        cg.addEdge(null, v, rightBorder[vAttrs.rank - minRank]);
-      }
-    });
-  }
 
-  g.children(null).forEach(dfs);
+        cg.addEdge(null, leftBorder, rightBorder);
+        for (var k = 0, kl = children.length; k < kl; ++k) {
+          var v = children[k],
+              vAttrs = g.node(v);
+          if (vAttrs.minRank <= i && i <= vAttrs.maxRank) {
+            cg.addEdge(null, leftBorder, v);
+            cg.addEdge(null, v, rightBorder);
+          }
+        }
+      }
+    }
+  });
 
   return cg;
 }
@@ -1235,11 +1228,6 @@ function order(g, maxSweeps, cg) {
 
   var layerGraphs = initLayerGraphs(g);
 
-  // TODO: remove this when we add back support for ordering clusters
-  layerGraphs.forEach(function(lg) {
-    lg = lg.filterNodes(function(u) { return !g.children(u).length; });
-  });
-
   var iters = 0,
       currentBestCC,
       allTimeBestCC = Number.MAX_VALUE,
@@ -1251,11 +1239,14 @@ function order(g, maxSweeps, cg) {
 
   for (var j = 0; j < Number(restarts) + 1 && allTimeBestCC !== 0; ++j) {
     currentBestCC = Number.MAX_VALUE;
-    initOrder(g, cg, restarts > 0);
+    initOrder(layerGraphs, cg, restarts > 0);
 
-    util.log(2, 'Order phase start cross count: ' + g.graph().orderInitCC);
+    var cc = crossCount(g);
+    g.graph().orderInitCC = cc;
 
-    var i, lastBest, cc;
+    util.log(2, 'Order phase start cross count: ' + cc);
+
+    var i, lastBest;
     for (i = 0, lastBest = 0; lastBest < 4 && i < maxSweeps && currentBestCC > 0; ++i, ++lastBest, ++iters) {
       sweep(g, layerGraphs, i, cg);
       cc = crossCount(g);
@@ -1424,9 +1415,8 @@ function initLayerGraphs(g) {
 }
 
 },{"../util":24,"graphlib":31}],13:[function(require,module,exports){
-var crossCount = require('./crossCount'),
-    PriorityQueue = require('cp-data').PriorityQueue;
-    util = require('../util');
+var PriorityQueue = require('cp-data').PriorityQueue,
+    nodesFromList = require('graphlib').filter.nodesFromList;
 
 module.exports = initOrder;
 
@@ -1449,118 +1439,140 @@ module.exports = initOrder;
  * TODO: More performant way to do this while retaining the above
  * characteristics?
  */
-function initOrder(g, cg, random) {
-  var layers = [];
-
-  cg = cg.copy();
-
-  g.eachNode(function(u, value) {
-    var layer = layers[value.rank];
-    if (g.children && g.children(u).length > 0) return;
-    if (!layer) {
-      layer = layers[value.rank] = [];
-    }
-    layer.push(u);
+function initOrder(layeredGraphs, cg, random) {
+  layeredGraphs.forEach(function(layer) {
+    var layerCG = cg.filterNodes(nodesFromList(layer.nodes()));
+    initOrderLayer(layer, layerCG, random);
   });
+}
 
-  layers.forEach(function(layer) {
+function initOrderLayer(g, cg, random) {
+  var nextOrder = 0;
+
+  function dfs(u) {
+    var children = g.children(u);
+    if (!children.length) {
+      g.node(u).order = nextOrder++;
+      return;
+    }
+
     var pq = new PriorityQueue(),
         keys = {},
-        u,
-        successors,
-        i = 0;
+        successors;
 
-    function tryAddToQueue(v) {
+    function tryEnqueue(v) {
       if (!cg.hasNode(v) || !cg.inEdges(v).length) {
         pq.add(v, keys[v]);
       }
     }
 
-    // Add initial set
-    layer.forEach(function(v, i) {
+    // For each node, assign a key which can be used to determine the order
+    // (sans constraints). If we're using random ordering, we just assign
+    // Math.random here.
+    children.forEach(function(v, i) {
       keys[v] = random ? Math.random() : i;
-      tryAddToQueue(v);
+      tryEnqueue(v);
     });
 
     while (pq.size()) {
       u = pq.removeMin();
-      g.node(u).order = i++;
+
+      dfs(u);
 
       if (cg.hasNode(u)) {
         successors = cg.successors(u);
         cg.delNode(u);
-        successors.forEach(tryAddToQueue);
+        successors.forEach(tryEnqueue);
       }
     }
-  });
+  }
 
-  var cc = crossCount(g);
-  g.graph().orderInitCC = cc;
-  g.graph().orderCC = Number.MAX_VALUE;
+  dfs(null);
 }
 
-},{"../util":24,"./crossCount":11,"cp-data":26}],14:[function(require,module,exports){
+},{"cp-data":26,"graphlib":31}],14:[function(require,module,exports){
 var util = require('../util'),
     Digraph = require('graphlib').Digraph,
-    topsort = require('graphlib').alg.topsort;
+    nodesFromList = require('graphlib').filter.nodesFromList;
 
 module.exports = sortLayer;
 
 function sortLayer(g, cg, weights) {
-  if (!cg) cg = new Digraph();
-  weights = adjustWeights(g, weights);
-  var result = sortLayerSubgraph(g, null, cg, weights);
+  if (!cg) { cg = new Digraph(); }
 
+  // Filter the input constraint graph to only those nodes in this layer.
+  var layerCG = cg.filterNodes(nodesFromList(g.nodes()));
+
+  // Adjust the weights of nodes so that we can try to preserve the position of
+  // nodes with no weights (i.e. nodes with no incoming edges).
+  weights = adjustWeights(g, weights);
+
+  // Start descending through the layers subgraphs.
+  var result = sortLayerSubgraph(g, null, layerCG, weights);
+
+  // Now iterate through the final list of sorted nodes. We use this info to
+  // set the `order` attribute.
   result.list.forEach(function(u, i) {
     g.node(u).order = i;
   });
 
-  return mergeDigraphs(cg, result.constraintGraph);
+  // Merge the updates with the original constraint graph.
+  return mergeDigraphs(cg, result.cg);
 }
 
-function sortLayerSubgraph(g, sg, cg, weights) {
-  var subgraphCG = cg.filterNodes(function(u) { return g.hasNode(u) && g.parent(u) === sg; }),
+function sortLayerSubgraph(g, sg, layerCG, weights) {
+  var subgraphCG = layerCG.filterNodes(function(u) { return g.parent(u) === sg; }),
+      idGen = util.idGen('_omn'),
       nodeData = {};
+
+  // Calculate the barycenter for each child of this subgraph, descending
+  // recursively into subgraphs, as needed.
   g.children(sg).forEach(function(u) {
     if (g.children(u).length) {
-      nodeData[u] = sortLayerSubgraph(g, u, cg, weights);
-      nodeData[u].firstSG = u;
-      nodeData[u].lastSG = u;
+      var result = nodeData[u] = sortLayerSubgraph(g, u, layerCG, weights);
+      result.firstSG = u;
+      result.lastSG = u;
     } else {
       var ws = weights[u];
       nodeData[u] = {
         degree: ws.length,
         barycenter: util.sum(ws) / ws.length,
-        order: g.node(u).order,
-        orderCount: 1,
-        list: [u]
+        list: [u],
+        origOrder: g.node(u).order,
+        origOrderCount: 1
       };
     }
   });
 
-  resolveViolatedConstraints(g, subgraphCG, nodeData);
+  // Resolve any constraint violations that would come about from naively using
+  // the calculated barycenters. We do this by rearranging conflicting nodes
+  // and merging them into a larger node to preserve their order.
+  resolveViolatedConstraints(g, subgraphCG, nodeData, idGen);
 
+  // Sort all of the children per the adjusted barycenters.
   var keys = Object.keys(nodeData);
   keys.sort(function(x, y) {
     return nodeData[x].barycenter - nodeData[y].barycenter ||
-           nodeData[x].order - nodeData[y].order;
+           nodeData[x].origOrder - nodeData[y].origOrder;
   });
 
-  var result =  keys.map(function(u) { return nodeData[u]; })
-                    .reduce(function(lhs, rhs) { return mergeNodeData(g, lhs, rhs); });
+  // Join up all of the nodes in this layer into a single node.
+  var result = keys.map(function(u) { return nodeData[u]; })
+                   .reduce(function(lhs, rhs) { return mergeNodeData(g, lhs, rhs); });
 
   return result;
 }
 
 function mergeNodeData(g, lhs, rhs) {
-  var cg = mergeDigraphs(lhs.constraintGraph, rhs.constraintGraph);
+  var cg = mergeDigraphs(lhs.cg, rhs.cg);
 
-  if (lhs.lastSG !== undefined && rhs.firstSG !== undefined && (lhs.lastSG !== lhs.firstSG) && (rhs.lastSG !== rhs.firstSG)) {
+  if (lhs.lastSG !== undefined && rhs.firstSG !== undefined) {
     if (cg === undefined) {
       cg = new Digraph();
     }
+
     if (!cg.hasNode(lhs.lastSG)) { cg.addNode(lhs.lastSG); }
-    cg.addNode(rhs.firstSG);
+    if (!cg.hasNode(rhs.firstSG)) { cg.addNode(rhs.firstSG); }
     cg.addEdge(null, lhs.lastSG, rhs.firstSG);
   }
 
@@ -1568,13 +1580,13 @@ function mergeNodeData(g, lhs, rhs) {
     degree: lhs.degree + rhs.degree,
     barycenter: (lhs.barycenter * lhs.degree + rhs.barycenter * rhs.degree) /
                 (lhs.degree + rhs.degree),
-    order: (lhs.order * lhs.orderCount + rhs.order * rhs.orderCount) /
-           (lhs.orderCount + rhs.orderCount),
-    orderCount: lhs.orderCount + rhs.orderCount,
     list: lhs.list.concat(rhs.list),
+    origOrder: (lhs.origOrder * lhs.origOrderCount + rhs.origOrder * rhs.origOrderCount) /
+           (lhs.origOrderCount + rhs.origOrderCount),
+    origOrderCount: lhs.origOrderCount + rhs.origOrderCount,
     firstSG: lhs.firstSG !== undefined ? lhs.firstSG : rhs.firstSG,
     lastSG: rhs.lastSG !== undefined ? rhs.lastSG : lhs.lastSG,
-    constraintGraph: cg
+    cg: cg
   };
 }
 
@@ -1588,18 +1600,31 @@ function mergeDigraphs(lhs, rhs) {
   return dest;
 }
 
-function resolveViolatedConstraints(g, cg, nodeData) {
+function resolveViolatedConstraints(g, cg, nodeData, idGen) {
   // Removes nodes `u` and `v` from `cg` and makes any edges incident on them
   // incident on `w` instead.
   function collapseNodes(u, v, w) {
-    // TODO original paper removes self loops, but it is not obvious when this would happen
     cg.inEdges(u).forEach(function(e) {
       cg.addEdge(null, cg.source(e), w);
       cg.delEdge(e);
     });
 
+    cg.inEdges(v).forEach(function(e) {
+      cg.addEdge(null, cg.source(e), w);
+      cg.delEdge(e);
+    });
+
+    cg.outEdges(u).forEach(function(e) {
+      cg.addEdge(null, w, cg.target(e));
+      cg.delEdge(e);
+    });
+
     cg.outEdges(v).forEach(function(e) {
       cg.addEdge(null, w, cg.target(e));
+      cg.delEdge(e);
+    });
+
+    cg.outEdges(w, w).forEach(function(e) {
       cg.delEdge(e);
     });
 
@@ -1612,10 +1637,7 @@ function resolveViolatedConstraints(g, cg, nodeData) {
     var source = cg.source(violated),
         target = cg.target(violated);
 
-    var v;
-    while ((v = cg.addNode(null)) && g.hasNode(v)) {
-      cg.delNode(v);
-    }
+    var v = cg.addNode(idGen());
 
     // Collapse barycenter and list
     nodeData[v] = mergeNodeData(g, nodeData[source], nodeData[target]);
@@ -1627,15 +1649,49 @@ function resolveViolatedConstraints(g, cg, nodeData) {
   }
 }
 
+// This is very similar to the function of the same name from "A Fast and
+// Simple Heuristic for Constrained Two-Level Crossing Reduction". Instaead of
+// iterating over the inEdge constraints in list order (line 9) we iterate over
+// them in reverse order. In the paper the constraints are added to the
+// beginning of the list (at line 13), which is an O(n) operation. By pushing
+// to the end of the list and reading the list in reverse order, we get better
+// asymptotic bounds.
 function findViolatedConstraint(cg, nodeData) {
-  var us = topsort(cg);
-  for (var i = 0; i < us.length; ++i) {
-    var u = us[i];
-    var inEdges = cg.inEdges(u);
-    for (var j = 0; j < inEdges.length; ++j) {
-      var e = inEdges[j];
-      if (nodeData[cg.source(e)].barycenter >= nodeData[u].barycenter) {
+  var active = [],
+      // incoming edges for the key node
+      incoming = {},
+      // Track the in-degree of key node
+      inDegree = {};
+
+  cg.eachNode(function(u) {
+    incoming[u] = [];
+    inDegree[u] = cg.inEdges(u).length;
+    if (!inDegree[u].length) {
+      active.push(u);
+    }
+  });
+
+  while (active.length) {
+    var v = active.pop(),
+        inEdges = incoming[v],
+        s, t, e,
+        i, il;
+
+    for (i = inEdges.length - 1; i >= 0; --i) {
+      e = inEdges[i];
+      s = cg.source(e);
+      if (nodeData[s].barycenter >= nodeData[v].barycenter) {
         return e;
+      }
+    }
+
+    var outEdges = cg.outEdges(v);
+    for (i = 0, il = outEdges.length; i < il; ++i) {
+      e = outEdges[i];
+      t = cg.target(e);
+      incoming[t].push(e);
+      if (--inDegree[t] === 0) {
+        active.push(t);
       }
     }
   }
@@ -2762,16 +2818,16 @@ exports.removeEmptyLayers = removeEmptyLayers;
  * are never at the same level.
  */
 function augment(g) {
-  var height = treeHeight(g) - 1,
-      topIdGen = util.idGen('_ct'),
-      bottomIdGen = util.idGen('_cb');
+  var height = treeHeight(g) - 1;
 
   g.eachEdge(function(e, u, v, value) {
     value.minLen *= 2 * height + 1;
   });
 
   function dfs(u) {
-    var children = g.children(u);
+    var children = g.children(u),
+        topIdGen = util.idGen('_ct-' + u),
+        bottomIdGen = util.idGen('_cb-' + u);
 
     if (children.length) {
       children.forEach(function(v) { dfs(v); });
@@ -3323,6 +3379,7 @@ exports.findLCA = function(g, u, v) {
  *   * _cb: cluster bottom node or edge from bottom node
  *   * _cl: cluster left node or left segment
  *   * _cr: cluster right node or right segment
+ *   * _omn: order merged node
  */
 exports.idGen = function(prefix) {
   var counter = 0;
