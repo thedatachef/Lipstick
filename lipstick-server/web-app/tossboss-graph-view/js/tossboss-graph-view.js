@@ -159,8 +159,7 @@
                 $(".graph-container").css( 'cursor', 'auto' );
             });
         });
-
-    },
+    },    
     /**
      * Draws the graph.
      *

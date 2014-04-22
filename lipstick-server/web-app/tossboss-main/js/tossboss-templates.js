@@ -121,6 +121,27 @@ aliasesTmpl: ' \
 </table> \
 ',
 
+childPlansTmpl: '\
+<table class="table table-condensed"> \
+  <thead> \
+    <tr> \
+      <td><strong>Child Plans</strong></td> \
+      <td><strong>Start</strong></td> \
+      <td><strong>End</strong></td> \
+    </tr> \
+  </thead> \
+  <tbody> \
+  <% _.each(data, function(plan, index) { %> \
+    <tr> \
+      <td><a class="plan-select" id="plan-<%= index%>"><%= index %></a></td> \
+      <td><%= moment(plan.startTime).format("M/DD/YYYY h:mm:ss") %></td> \
+      <td><%= moment(plan.endTime).format("M/DD/YYYY h:mm:ss") %></td> \
+    </tr> \
+  <% }); %> \
+  </tbody> \
+</table> \
+',
+    
 sampleOutputDataTmpl: ' \
 <% if ((! $.isEmptyObject(data)) && data.sampleOutputData.sampleOutputList.length > 0) { %> \
     <% _.each(data.sampleOutputData.sampleOutputList, function(sampleOutputObj, index) { %> \

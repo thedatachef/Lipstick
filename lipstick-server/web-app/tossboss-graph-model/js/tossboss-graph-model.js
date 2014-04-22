@@ -37,6 +37,8 @@
         pigOptimizedData: undefined,
         svgOptimized: undefined,
         runStatsData: undefined,
+        currentPlan: 0, // Index of the current plan
+        childPlans: [],
         sampleOutputsData: {}
     },
     /**
@@ -54,9 +56,10 @@
                         type: 'GET',
                         url:  GraphModel.options.baseUrl + GraphModel.options.uuid +'?sampleOutput=1',
                     }).done(function(json) {
+                        var plan = json.plans[GraphModel.options.currentPlan];
                         // If there is sample data, cache and populate.
-                        if (! $.isEmptyObject(json.sampleOutputMap)) {
-                            GraphModel.options.sampleOutputsData = json.sampleOutputMap;
+                        if (! $.isEmptyObject(plan.sampleOutputMap)) {
+                            GraphModel.options.sampleOutputsData = plan.sampleOutputMap;
                             if (GraphModel.options.sampleOutputsData[startScopeId]) {
                                 GraphModel.populateSampleOutputData(startNodeId, startScopeId);
                                 return;
@@ -86,12 +89,13 @@
         $.ajax({
             type: 'GET',
             url:  GraphModel.options.baseUrl + uuid + '?optimized=1&scripts=1'
-        }).done(function(json) {
-            GraphModel.options.allData = json;
-            GraphModel.options.runStatsData = json.status;
-            GraphModel.options.pigOptimizedData = json.optimized.plan;
-            GraphModel.options.svgOptimized = json.optimized.svg;
-            $(GraphModel.options.jobInfoSel).html(json.jobName + ' (' + json.userName + ')');
+        }).done(function(json) {            
+            var plan = json.plans[GraphModel.options.currentPlan];            
+            GraphModel.options.allData = plan;
+            GraphModel.options.runStatsData = plan.status;
+            GraphModel.options.pigOptimizedData = plan.optimized.plan;
+            GraphModel.options.svgOptimized = plan.optimized.svg;
+            $(GraphModel.options.jobInfoSel).html(plan.jobName + ' (' + plan.userName + ')');
             $(document).trigger('loadGraphModel.tossboss-graph-model');
             GraphModel.getRunStats()
         }).fail(function() {
@@ -101,8 +105,9 @@
             type: 'GET',
             url:  GraphModel.options.baseUrl + uuid + '?unoptimized=1'
         }).done(function(json) {
-            GraphModel.options.pigUnoptimizedData = json.unoptimized.plan;
-            GraphModel.options.svgUnoptimized = json.unoptimized.svg;
+            var plan = json.plans[GraphModel.options.currentPlan];
+            GraphModel.options.pigUnoptimizedData = plan.unoptimized.plan;
+            GraphModel.options.svgUnoptimized = plan.unoptimized.svg;
         });
     },
     /**
@@ -113,7 +118,15 @@
             type: 'GET',
             url:  GraphModel.options.baseUrl + GraphModel.options.uuid + '?status=1',
         }).done(function(json) {
-            GraphModel.options.runStatsData = json.status;
+            GraphModel.options.childPlans = [];
+            GraphModel.options.runStatsData = {};
+            _.each(json.plans, function(p, index) {
+                // Deep merge runstats
+                $.extend(true, GraphModel.options.runStatsData, p.status);
+                console.log(GraphModel.options.allData);
+                console.log(p.status.jobStatusMap);
+                GraphModel.options.childPlans.push({startTime: p.status.startTime, endTime: p.status.endTime});
+            });
             $(document).trigger('loadRunStatsData.tossboss-graph-model');
             // If the script is still running, wait then get run stats data again.
             if (GraphModel.options.runStatsData.statusText.toLowerCase() === "running") {
@@ -122,6 +135,12 @@
         }).fail(function() {
             _.delay(GraphModel.getRunStats, 5000);
         });
+    },
+    changePlan: function(index) {
+        if (index !== GraphModel.options.currentPlan) {
+            GraphModel.options.currentPlan = index;
+            GraphModel.initialize(GraphModel.options.uuid);
+        }
     },
     /**
      * Return the Pig data for the active graph type (optimized or unoptimized).

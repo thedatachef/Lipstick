@@ -100,7 +100,6 @@ public class P2jPlanPackage {
         return jobName;
     }
 
-    @Column(unique = true)
     public String getUuid() {
         return uuid;
     }

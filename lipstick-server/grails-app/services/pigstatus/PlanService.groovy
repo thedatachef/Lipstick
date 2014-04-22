@@ -46,21 +46,21 @@ class PlanService {
         }
     }
 	
-	def addSampleOutput(id, jobId, jsonString)  {
-		P2jSampleOutputList sampleOutputList = om.readValue(jsonString, P2jSampleOutputList.class);
-		P2jPlanPackage plan = P2jPlanPackage.findByUuid(id)
-		plan.getSampleOutputMap().put(jobId, sampleOutputList);
-		if (plan.save(flush:true)) {
-            return [
-                uuid: id,
-                jobId: jobId
-            ]
-        } else {
-            return  [
-                error: "failed to save sampleoutput"
-            ]
-        }
-	}
+    def addSampleOutput(id, jobId, jsonString)  {
+      P2jSampleOutputList sampleOutputList = om.readValue(jsonString, P2jSampleOutputList.class);
+      P2jPlanPackage plan = P2jPlanPackage.findByUuid(id)
+      plan.getSampleOutputMap().put(jobId, sampleOutputList);
+      if (plan.save(flush:true)) {
+        return [
+          uuid: id,
+          jobId: jobId
+        ]
+      } else {
+        return  [
+          error: "failed to save sampleoutput"
+        ]
+      }
+    }
 
     def list(params) {
         params.max = Math.min(params.max ? params.int('max') : 10, 100)
@@ -104,19 +104,33 @@ class PlanService {
                 }
             }
         }
-
+        
+        def uniqueJobs = [:]
+        for (job in jobs) {
+          if (uniqueJobs.containsKey(job.uuid)) {
+            // Always take the earliest
+            if (job.id < uniqueJobs[job.uuid].id) {
+              uniqueJobs[job.uuid] = job
+            }            
+          } else {
+            uniqueJobs[job.uuid] = job
+          }
+        }
+        
         return [
-            jobs: jobs,
+            jobs: uniqueJobs.values(),
             jobsTotal: jobs.getTotalCount()
         ]
     }
 
     def update(params, jsonString) {
-        def plan = P2jPlanPackage.findByUuid(params.id)
-        if (!plan) {
+        def plans = P2jPlanPackage.findAllByUuid(params.id)
+        if (!plans || plans.size() < 1) {
             return null
         }
-        plan.status.updateWith(om.readValue(jsonString, P2jPlanStatus.class));
+        for (plan in plans) { 
+          plan.status.updateWith(om.readValue(jsonString, P2jPlanStatus.class));
+        }
         return [ status: "updated uuid " + params.id ]
     }
 
@@ -133,9 +147,9 @@ class PlanService {
             params.full = true
         }
 
-        def plan 
+        def plans 
         if (!params.full) {
-            plan = P2jPlanPackage.createCriteria().list() {
+            plans = P2jPlanPackage.createCriteria().list() {
                 eq('uuid', params.id)
                 resultTransformer(CriteriaSpecification.ALIAS_TO_ENTITY_MAP)
                 projections {
@@ -157,18 +171,18 @@ class PlanService {
                     }
                 }
             }
-            if (!plan) {
+            if (!plans) {
                 return null
-            } else {
-                plan = plan[0]
             }
             if (params.sampleOutput) {
                 def temp = P2jPlanPackage.findByUuid(params.id)
-                plan.sampleOutputMap = temp.sampleOutputMap
+                for (plan in plans) {
+                  plan.sampleOutputMap = temp.sampleOutputMap
+                }
             }
         } else {
-            plan = P2jPlanPackage.findByUuid(params.id)
+            plans = P2jPlanPackage.findAllByUuid(params.id)
         }
-        return om.writeValueAsString(plan)
+        return om.writeValueAsString(["plans":plans])
     }
 }

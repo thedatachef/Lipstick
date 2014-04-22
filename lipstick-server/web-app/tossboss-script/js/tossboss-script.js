@@ -71,6 +71,7 @@
         Script.initPage();
         Script.startListeners();
         Script.options.script = script;
+        Script.options.lineNumbers = [];
         // Populate Code Mirror with script and get script line numbers from Pig data.
         if (script) {
             var pigData = GraphModel.getPigData();

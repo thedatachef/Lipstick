@@ -188,11 +188,21 @@
      */
     populateScriptInfo: function() {
         DetailView.clearContents();
+        
+        var childPlans = GraphModel.options.childPlans;
+        DetailView.addObject({groupName: 'script-mr-jobs', objectName: 'script-mr-jobs', title: '',
+            html: _.template(Templates.childPlansTmpl, childPlans, {variable:'data'})});
+        
         // Get all run stats data for all map-reduce jobs in the graph.
-        var data = GraphModel.getScriptInfo();
+        var data = GraphModel.getScriptInfo();        
         // Add script-mr-jobs object to script-mr-jobs group.
         DetailView.addObject({groupName: 'script-mr-jobs', objectName: 'script-mr-jobs', title: '',
             html: _.template(Templates.mrJobsTmpl, data, {variable:'data'})});
+
+        $('a.plan-select').on('click', function(event) {
+            var childPlanId = event.currentTarget.id;
+            GraphModel.changePlan(childPlanId.split("-")[1]);
+        });
     }
 };
 
