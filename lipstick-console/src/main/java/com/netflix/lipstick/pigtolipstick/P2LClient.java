@@ -75,6 +75,20 @@ public interface P2LClient {
     String getPlanId();
 
     /**
+     * Sets the parent id of the plan.
+     *
+     * @param parentId
+     */
+    void setParentId(String parentId);
+
+    /**
+     * Returns the parent id of the plan.
+     *
+     * @return
+     */
+    String getParentId();
+
+    /**
      * Signals that progress has been made in at least one job.
      * Implementations should use this as a trigger to update state about the job(s).
      *

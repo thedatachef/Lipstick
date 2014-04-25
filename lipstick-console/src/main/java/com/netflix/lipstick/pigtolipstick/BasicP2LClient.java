@@ -80,6 +80,7 @@ public class BasicP2LClient implements P2LClient {
 
     protected boolean planFailed = false;
     protected String planId;
+    protected String parentId;
     protected P2jPlanGenerator unopPlanGenerator;
     protected P2jPlanGenerator opPlanGenerator;
     protected LipstickPigServer ps;
@@ -121,10 +122,20 @@ public class BasicP2LClient implements P2LClient {
     }
 
     @Override
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
+    }
+       
+    @Override
     public void setPlanId(String planId) {
         this.planId = planId;
     }
 
+    @Override
+    public String getParentId() {
+        return parentId;
+    }
+    
     @Override
     public String getPlanId() {
         return planId;
@@ -162,7 +173,7 @@ public class BasicP2LClient implements P2LClient {
                 MRPlanCalculator opPlan = new MRPlanCalculator(opPlanGenerator.getP2jPlan(), plan, p2lMap, opPlanGenerator.getReverseMap());
                 MRPlanCalculator unopPlan = new MRPlanCalculator(unopPlanGenerator.getP2jPlan(), plan, p2lMap, unopPlanGenerator.getReverseMap());
 
-                P2jPlanPackage plans = new P2jPlanPackage(opPlan.getP2jPlan(), unopPlan.getP2jPlan(), script, planId);
+                P2jPlanPackage plans = new P2jPlanPackage(opPlan.getP2jPlan(), unopPlan.getP2jPlan(), script, planId, parentId);
 
                 Properties props = context.getProperties();
                 plans.setUserName(UserGroupInformation.getCurrentUser().getUserName());

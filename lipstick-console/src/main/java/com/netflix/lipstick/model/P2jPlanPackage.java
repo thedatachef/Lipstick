@@ -41,7 +41,10 @@ public class P2jPlanPackage {
     private P2jPlan unoptimized;
     private String userName;
     private String jobName;
-    private String uuid;
+
+    private String parentId; // parent uuid
+    private String uuid;   // uuid for the plan package itself, unique
+    
     private Map<String, P2jSampleOutputList> sampleOutputMap;
 
     /**
@@ -58,12 +61,13 @@ public class P2jPlanPackage {
      * @param script the script the plans were derived from
      * @param uuid a unique identifier for this object
      */
-    public P2jPlanPackage(P2jPlan optimized, P2jPlan unoptimized, String script, String uuid) {
+    public P2jPlanPackage(P2jPlan optimized, P2jPlan unoptimized, String script, String uuid, String parentId) {
         this.optimized = optimized;
         this.unoptimized = unoptimized;
         this.scripts = new P2jScripts(script);
         this.status = new P2jPlanStatus();
         this.uuid = uuid;
+        this.parentId = parentId;
     }
 
     @Id
@@ -100,6 +104,11 @@ public class P2jPlanPackage {
         return jobName;
     }
 
+    public String getParentId() {
+        return parentId;
+    }
+    
+    @Column(unique = true)
     public String getUuid() {
         return uuid;
     }
@@ -132,6 +141,10 @@ public class P2jPlanPackage {
         this.jobName = jobName;
     }
 
+    public void setParentId(String parentId) {
+        this.parentId = parentId;
+    }
+    
     public void setUuid(String uuid) {
         this.uuid = uuid;
     }

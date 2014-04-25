@@ -70,20 +70,21 @@ public class RestfulPigStatusClient implements PigStatusClient {
         }
 
         try {
-            String output = (String) om.readValue(response.getEntity(String.class), Map.class).get("uuid");
-            if (!plans.getUuid().equals(output)) {
-                LOG.error("Incorrect uuid returned from server");
+            String output = (String) om.readValue(response.getEntity(String.class), Map.class).get("parentId");
+            if (!plans.getParentId().equals(output)) {
+                LOG.error("Incorrect script uuid returned from server");
             }
             LOG.info("This script has been assigned uuid: " + output);
             LOG.info("Navigate to " + serviceUrl + "#job/" + output + " to view progress.");
             return plans.getUuid();
 
         } catch (Exception e) {
-            LOG.error("Error getting uuid from server response.", e);
+            LOG.error("Error getting script uuid from server response.", e);
         }
         return null;
     }
 
+    // FIXME - Need to make this the path to the subplan, not the parent
     @Override
     public void saveStatus(String uuid, P2jPlanStatus status) {
         status.setHeartbeatTime();
@@ -92,6 +93,7 @@ public class RestfulPigStatusClient implements PigStatusClient {
         LOG.info("Navigate to " + serviceUrl + "#job/" + uuid + " to view progress.");
     }
 
+    // FIXME - Ditto as above
     @Override
     public void saveSampleOutput(String uuid, String jobId, P2jSampleOutputList sampleOutputList) {
         String resourceUrl = String.format("%s/job/%s/sampleOutput/%s", serviceUrl, uuid, jobId);

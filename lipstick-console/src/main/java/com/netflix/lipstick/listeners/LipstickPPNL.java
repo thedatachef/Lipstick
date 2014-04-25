@@ -47,8 +47,7 @@ public class LipstickPPNL implements PigProgressNotificationListener {
     private static final Log LOG = LogFactory.getLog(LipstickPPNL.class);
 
     protected static final String LIPSTICK_UUID_PROP_NAME = "lipstick.uuid.prop.name";
-    protected static final String LIPSTICK_UUID_PROP_DEFAULT = "lipstick.uuid";
-
+    protected static final String LIPSTICK_UUID_PROP_DEFAULT = "lipstick.uuid";    
     protected static final String LIPSTICK_URL_PROP = "lipstick.server.url";
 
     protected LipstickPigServer ps;
@@ -118,19 +117,25 @@ public class LipstickPPNL implements PigProgressNotificationListener {
 
             if (clientIsActive()) {
                 Properties props = context.getProperties();
-                String uuidPropName = props.getProperty(LIPSTICK_UUID_PROP_NAME, LIPSTICK_UUID_PROP_DEFAULT);
-                String uuid = props.getProperty(uuidPropName);
-                if ((uuid == null) || uuid.isEmpty()) {
-                    uuid = UUID.randomUUID().toString();
-                    props.put(uuidPropName, uuid);
+                String parentPropName = props.getProperty(LIPSTICK_UUID_PROP_NAME, LIPSTICK_UUID_PROP_DEFAULT);
+                String parentId = props.getProperty(parentPropName);
+
+                // Create (and set in properties) parent id if it doesn't exist
+                if ((parentId == null) || parentId.isEmpty()) {
+                    parentId = UUID.randomUUID().toString();
+                    props.put(parentPropName, parentId);
                 }
-                LOG.info("UUID: " + uuid);
+                
+                String planUuid = UUID.randomUUID().toString();
+                
+                LOG.info("Plan UUID: " + planUuid + ", Parent UUID: " + parentId);
                 LOG.info(clients);
                 for (P2LClient client : clients) {
                     client.setPlanGenerators(unoptimizedPlanGenerator, optimizedPlanGenerator);
                     client.setPigServer(ps);
                     client.setPigContext(context);
-                    client.setPlanId(uuid);
+                    client.setParentId(parentId);
+                    client.setPlanId(planUuid);
                 }
 
             }

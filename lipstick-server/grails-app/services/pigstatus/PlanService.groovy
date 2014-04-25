@@ -29,7 +29,8 @@ class PlanService {
 
     def save(params, jsonString) {
         def ser = om.readValue(jsonString, P2jPlanPackage.class)
-        def uuid = ser.uuid
+        def uuid = ser.uuid // plan uuid
+        def parentId = ser.parentId // parentId
         def svg = new Pig2DotGenerator(ser.optimized).generatePlan("svg")
         ser.optimized.setSvg(svg)
         svg = new Pig2DotGenerator(ser.unoptimized).generatePlan("svg")
